@@ -4,7 +4,7 @@ import java.io.File;
 
 public class XMLParser {
 
-    public static void main(String[] args) {
+    public static void invokeParser(String filePath) {
 
         try {
             // Initialize a document builder
@@ -12,8 +12,8 @@ public class XMLParser {
             DocumentBuilder builder = factory.newDocumentBuilder();
 
             // Parse the XML file
-            Document document = builder.parse(new File("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/"));
-
+            //Document document = builder.parse(new File("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/"));
+            Document document = builder.parse(new File(filePath));
             // Normalize the XML structure
             document.getDocumentElement().normalize();
 
@@ -25,6 +25,28 @@ public class XMLParser {
             e.printStackTrace();
         }
     }
+
+//    public static void main(String[] args) {
+//
+//        try {
+//            // Initialize a document builder
+//            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+//            DocumentBuilder builder = factory.newDocumentBuilder();
+//
+//            // Parse the XML file
+//            Document document = builder.parse(new File("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/"));
+//
+//            // Normalize the XML structure
+//            document.getDocumentElement().normalize();
+//
+//            // Here we choose to parse both article and inproceedings elements
+//            parseElements(document, "article");
+//            parseElements(document, "inproceedings");
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
     private static void parseElements(Document document, String tag) {
         // Get all elements by tag name
