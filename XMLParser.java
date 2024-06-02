@@ -1,91 +1,86 @@
-import org.w3c.dom.*;
-import javax.xml.parsers.*;
-import java.io.File;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import java.util.ArrayList;
+import java.util.List;
 
 public class XMLParser {
+    public static void invokeParser(String path) throws Exception {
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        SAXParser saxParser = factory.newSAXParser();
 
-    public static void invokeParser(String filePath) {
+        XMLHandler handler = new XMLHandler();
+        saxParser.parse(path, handler);
+        handler.printResults();
+    }
 
-        try {
-            // Initialize a document builder
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
+    public static class XMLHandler extends DefaultHandler {
+        private List<Node> nodes = new ArrayList<>();
+        private List<Edge> edges = new ArrayList<>();
+        private Node currentNode;
+        private Edge currentEdge;
+        private StringBuilder currentValue = new StringBuilder();
+        private int nodeId = 0;
 
-            // Parse the XML file
-            //Document document = builder.parse(new File("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/"));
-            Document document = builder.parse(new File(filePath));
-            // Normalize the XML structure
-            document.getDocumentElement().normalize();
+        @Override
+        public void characters(char[] ch, int start, int length) throws SAXException {
+            currentValue.append(ch, start, length);
+        }
 
-            // Here we choose to parse both article and inproceedings elements
-            parseElements(document, "article");
-            parseElements(document, "inproceedings");
+        @Override
+        public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+            currentValue.setLength(0);
+            if (qName.equalsIgnoreCase("article")) {
+                currentNode = new Node(nodeId++, "article", null);
+                nodes.add(currentNode);
+            } else if (qName.equalsIgnoreCase("author")) {
+                currentNode = new Node(nodeId++, "author", null);
+            }
+        }
 
-        } catch (Exception e) {
-            e.printStackTrace();
+        @Override
+        public void endElement(String uri, String localName, String qName) throws SAXException {
+            if (qName.equalsIgnoreCase("author")) {
+                currentNode.content = currentValue.toString().trim();
+                nodes.add(currentNode);
+            } else if (qName.equalsIgnoreCase("title") || qName.equalsIgnoreCase("pages") || qName.equalsIgnoreCase("year") || qName.equalsIgnoreCase("volume")) {
+                currentNode = new Node(nodeId++, qName, currentValue.toString().trim());
+                nodes.add(currentNode);
+            }
+        }
+
+        public void printResults() {
+            for (Node node : nodes) {
+                System.out.println("Node ID: " + node.id + ", Type: " + node.type + ", Content: " + node.content);
+            }
+            for (Edge edge : edges) {
+                System.out.println("Edge from Node ID: " + edge.from + " to Node ID: " + edge.to);
+            }
         }
     }
 
-//    public static void main(String[] args) {
-//
-//        try {
-//            // Initialize a document builder
-//            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-//            DocumentBuilder builder = factory.newDocumentBuilder();
-//
-//            // Parse the XML file
-//            Document document = builder.parse(new File("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/"));
-//
-//            // Normalize the XML structure
-//            document.getDocumentElement().normalize();
-//
-//            // Here we choose to parse both article and inproceedings elements
-//            parseElements(document, "article");
-//            parseElements(document, "inproceedings");
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
+    public static class Node {
+        int id;
+        String type;
+        String content;
 
-    private static void parseElements(Document document, String tag) {
-        // Get all elements by tag name
-        NodeList list = document.getElementsByTagName(tag);
+        public Node(int id, String type, String content) {
+            this.id = id;
+            this.type = type;
+            this.content = content;
+        }
+    }
 
-        for (int temp = 0; temp < list.getLength(); temp++) {
-            Node node = list.item(temp);
+    public static class Edge {
+        int from;
+        int to;
 
-            if (node.getNodeType() == Node.ELEMENT_NODE) {
-                Element element = (Element) node;
-
-                // Extract elements like author, title, year, ee, url
-                System.out.println("Title: " + element.getElementsByTagName("title").item(0).getTextContent());
-                System.out.println("Year: " + element.getElementsByTagName("year").item(0).getTextContent());
-                System.out.println("Pages: " + element.getElementsByTagName("pages").item(0).getTextContent());
-                System.out.println("URL: " + element.getElementsByTagName("url").item(0).getTextContent());
-
-                // Getting authors
-                NodeList authors = element.getElementsByTagName("author");
-                for (int count = 0; count < authors.getLength(); count++) {
-                    Node nodeAuthor = authors.item(count);
-                    if (nodeAuthor.getNodeType() == Node.ELEMENT_NODE) {
-                        Element author = (Element) nodeAuthor;
-                        System.out.println("Author: " + author.getTextContent());
-                    }
-                }
-
-                // Print electronic edition URLs (if available)
-                NodeList eeList = element.getElementsByTagName("ee");
-                for (int eeCount = 0; eeCount < eeList.getLength(); eeCount++) {
-                    Node eeNode = eeList.item(eeCount);
-                    if (eeNode.getNodeType() == Node.ELEMENT_NODE) {
-                        Element ee = (Element) eeNode;
-                        System.out.println("Electronic Edition (EE): " + ee.getTextContent());
-                    }
-                }
-
-                System.out.println("\n");
-            }
+        public Edge(int from, int to) {
+            this.from = from;
+            this.to = to;
         }
     }
 }

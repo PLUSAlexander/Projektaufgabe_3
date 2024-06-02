@@ -6,7 +6,7 @@ public class Alexander {
     private static String url = "jdbc:postgresql://localhost/postgres";
     private static String user = "postgres";
     private static String pwd = "1234";
-    public static void main (String[] args) throws SQLException {
+    public static void main (String[] args) throws Exception {
         con = DriverManager.getConnection(url, user, pwd);
         createEdgeModel();
         XMLParser.invokeParser("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/");
