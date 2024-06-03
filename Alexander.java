@@ -17,6 +17,10 @@ public class Alexander {
     private static String user = "postgres";
     private static String pwd = "1234";
     private static int id = 1;
+    private static int toCounter = 2;
+    private static List<Integer> toCount = new ArrayList<>();
+    private static int fromCounter = 1;
+    private static List<Integer> fromCount = new ArrayList<>();
     public static void main(String[] args) {
         try {
             con = DriverManager.getConnection(url, user, pwd);
@@ -31,6 +35,9 @@ public class Alexander {
             processEntries(document, "article");
             processEntries(document, "inproceedings");
 
+            edgeInserter();
+
+
             con.close();
 
         } catch (Exception e) {
@@ -39,16 +46,19 @@ public class Alexander {
     }
 
     public static void processEntries(Document doc, String tagName) throws SQLException {
-        NodeList entries = doc.getElementsByTagName(tagName);
+
+
+        NodeList entries = doc.getElementsByTagName(tagName); // LISTE VON ARTICLE BZW. INPROCEEDINGS
+
         for (int i = 0; i < entries.getLength(); i++) {
             Element entry = (Element) entries.item(i);
             String key = entry.getAttribute("key");
             String[] parts = key.split("/");
-            String journal = parts.length > 1 ? parts[1] : "No Journal";  // Handling in case of missing parts
+            String venue = parts.length > 1 ? parts[1] : "No Journal";  // Handling in case of missing parts
             String name = parts.length > 2 ? parts[2] : "No Name";
 
             System.out.println(tagName.toUpperCase() + " Entry:");
-            System.out.println("Journal part: " + journal); // VENUE + VENUE_YEAR
+            System.out.println("Journal part: " + venue); // VENUE + VENUE_YEAR
             System.out.println("Name: " + name);
 
             String year = null;
@@ -69,62 +79,104 @@ public class Alexander {
 
             Statement stInsert = con.createStatement();
             StringBuilder strInsert = new StringBuilder("insert into node(id, s_id, type, content) VALUES ");
-            strInsert.append("(" + id + ", '" + journal + "', 'venue', " + "null), ");
+            strInsert.append("(" + id + ", '" + venue + "', 'venue', " + "null), "); // IMMER 1!!!
+            toCount.add(toCounter);
+            fromCount.add(1);
+            fromCounter = toCounter;
+            toCounter++;
 
             id++;
-            strInsert.append("(" + id + ", '" + journal + "_" + year + "', 'year', " + "null), ");
+            strInsert.append("(" + id + ", '" + venue + "_" + year + "', 'year', " + "null), ");  // HÖRE AUF ZU ZÄHLEN!!!
+            toCount.add(toCounter);
+            toCounter++;
+            fromCount.add(fromCounter);
+            fromCounter++;
+
             id++;
             strInsert.append("(" + id + ", '" + name + "', '" + tagName + "', " + "null), ");
+            toCount.add(toCounter);
+            toCounter++;
+            fromCount.add(fromCounter);
 
             if (true) {
                 for (String s : authors) {
                     id++;
                     strInsert.append("(" + id + ", null, 'author', '" + s + "'), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(fromCounter);
                 }
 
                 for (String s : title) {
                     id++;
                     strInsert.append("(" + id + ", null, 'title', '" + s.replace("'", "''") + "'), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(fromCounter);
                 }
 
                 for (String s : pages) {
                     id++;
                     strInsert.append("(" + id + ", null, 'pages', '" + s + "'), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(fromCounter);
                 }
 
                 for (String s : years) {
                     id++;
                     strInsert.append("(" + id + ", null, 'year', '" + s + "'), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(fromCounter);
                 }
 
                 for (String s : vol) {
                     id++;
                     strInsert.append("(" + id + ", null, 'volume', '" + s + "'), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(fromCounter);
                 }
 
                 for (String s : journals) {
                     id++;
                     strInsert.append("(" + id + ", null, 'journal', '" + s + "'), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(fromCounter);
                 }
 
                 for (String s : booktitles) {
                     id++;
                     strInsert.append("(" + id + ", null, 'booktitle', '" + s + "'), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(fromCounter);
                 }
 
                 for (String s : numbers) {
                     id++;
                     strInsert.append("(" + id + ", null, 'number', '" + s + "'), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(fromCounter);
                 }
 
                 for (String s : dois) {
                     id++;
                     strInsert.append("(" + id + ", null, 'ee', '" + s + "'), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(fromCounter);
                 }
 
                 for (String s : urls) {
                     id++;
                     strInsert.append("(" + id + ", null, 'url', '" + s + "');");
+                    toCount.add(toCounter);
+                    fromCount.add(fromCounter);
+                    //toCounter++;
                 }
                 id++;
             } // INSERT
@@ -186,6 +238,20 @@ public class Alexander {
         Statement stCreateEdge = con.createStatement();
         String createEdge = "CREATE TABLE EDGE (fr_om int, t_o int);";
         stCreateEdge.execute(createEdge);
+    }
+
+    public static void edgeInserter() throws SQLException {
+        Statement st = con.createStatement();
+        StringBuilder sbEdgeInsert = new StringBuilder("insert into edge (fr_om, t_o) VALUES (0, 1), ");
+        for (int i = 0; i < toCount.size() && i < fromCount.size(); i++) {
+            if (i == toCount.size() - 1) {
+                sbEdgeInsert.append("(" + fromCount.get(i) + ", " + toCount.get(i) + ");");
+            } else {
+                sbEdgeInsert.append("(" + fromCount.get(i) + ", " + toCount.get(i) + "), ");
+            }
+        }
+
+        st.execute(sbEdgeInsert.toString());
     }
 
 }
