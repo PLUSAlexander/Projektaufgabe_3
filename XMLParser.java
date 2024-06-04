@@ -1,11 +1,11 @@
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
-
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
 
 public class XMLParser {
     public static void invokeParser(String path) throws Exception {
@@ -20,8 +20,7 @@ public class XMLParser {
     public static class XMLHandler extends DefaultHandler {
         private List<Node> nodes = new ArrayList<>();
         private List<Edge> edges = new ArrayList<>();
-        private Node currentNode;
-        private Edge currentEdge;
+        private Stack<Integer> contextStack = new Stack<>();
         private StringBuilder currentValue = new StringBuilder();
         private int nodeId = 0;
 
@@ -33,23 +32,43 @@ public class XMLParser {
         @Override
         public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
             currentValue.setLength(0);
-            if (qName.equalsIgnoreCase("article")) {
-                currentNode = new Node(nodeId++, "article", null);
-                nodes.add(currentNode);
-            } else if (qName.equalsIgnoreCase("author")) {
-                currentNode = new Node(nodeId++, "author", null);
+            Node newNode = new Node(nodeId++, qName, null);
+            nodes.add(newNode);
+
+            if (!contextStack.isEmpty()) {
+                edges.add(new Edge(contextStack.peek(), newNode.id));
             }
+            contextStack.push(newNode.id);
+
+            if (qName.equalsIgnoreCase("article")) {
+                String key = attributes.getValue("key");
+                if (key != null) {
+                    String venue = extractVenue(key);
+                    if (venue != null) {
+                        Node venueNode = new Node(nodeId++, "venue", venue);
+                        nodes.add(venueNode);
+                        edges.add(new Edge(contextStack.peek(), venueNode.id));
+                    }
+                }
+            }
+        }
+
+        private String extractVenue(String key) {
+            String[] parts = key.split("/");
+            if (parts.length > 1) {
+                return parts[1]; // The venue is typically the second part in the key
+            }
+            return null;
         }
 
         @Override
         public void endElement(String uri, String localName, String qName) throws SAXException {
-            if (qName.equalsIgnoreCase("author")) {
-                currentNode.content = currentValue.toString().trim();
-                nodes.add(currentNode);
-            } else if (qName.equalsIgnoreCase("title") || qName.equalsIgnoreCase("pages") || qName.equalsIgnoreCase("year") || qName.equalsIgnoreCase("volume")) {
-                currentNode = new Node(nodeId++, qName, currentValue.toString().trim());
-                nodes.add(currentNode);
+            if (qName.equalsIgnoreCase("author") || qName.equalsIgnoreCase("title") || qName.equalsIgnoreCase("pages") || qName.equalsIgnoreCase("year") || qName.equalsIgnoreCase("volume") || qName.equalsIgnoreCase("journal") || qName.equalsIgnoreCase("number")) {
+                Node node = nodes.get(nodes.size() - 1);
+                node.content = currentValue.toString().trim();
             }
+
+            contextStack.pop();
         }
 
         public void printResults() {
