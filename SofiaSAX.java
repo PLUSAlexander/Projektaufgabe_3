@@ -3,8 +3,6 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.xml.sax.Attributes;
-import org.xml.sax.EntityResolver;
-import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
@@ -18,13 +16,14 @@ public class SofiaSAX {
     private static String url = "jdbc:postgresql://localhost/postgres";
     private static String user = "postgres";
     private static String pwd = "1234";
-    private static int id = 1;
+    private static int id = 0;
     private static int toCounter = 1;
     private static List<Integer> toCount = new ArrayList<>();
     private static int fromCounter = 1;
     private static List<Integer> fromCount = new ArrayList<>();
-    private static int firstTime = 1;
-    private static int firstFromCounter = 1;
+
+    private static Map<String, Integer> venues = new HashMap<>();
+    private static Map<String, Integer> years = new HashMap<>();
 
 
     public static void main(String[] args) throws ParserConfigurationException, SAXException, IOException, SQLException {
@@ -32,8 +31,6 @@ public class SofiaSAX {
 
         SAXParserFactory factory = SAXParserFactory.newInstance();
         SAXParser saxParser = factory.newSAXParser();
-        //EntityResolver res = new EntityRes();
-        //saxParser.getXMLReader().setEntityResolver(res);
 
         BibHandler bibHandler = new BibHandler();
         saxParser.parse("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/", bibHandler);
@@ -171,28 +168,46 @@ public class SofiaSAX {
                 Statement stmInsert = con.createStatement();
                 StringBuilder strInsert = new StringBuilder("insert into node(id, s_id, type, content) VALUES ");
 
-                strInsert.append("(").append(id).append(", '").append(venue).append("', 'venue', ").append("null), ");
-                toCount.add(toCounter);
-                fromCount.add(1);
-                fromCounter = toCounter;
-                toCounter++;
 
-                id++;
-                strInsert.append("(").append(id).append(", '").append(venue).append("_").append(year).append("', 'year', ").append("null), ");
-                toCount.add(toCounter);
-                toCounter++;
-                fromCount.add(fromCounter);
-                fromCounter++;
+                //group after venue and year ->
+
+                String venueToGroup = venue;   //for pacmmod = sigmod; group both under sigmod
+
+                if(venue.equals("pacmmod")) {
+                    venueToGroup = "sigmod";
+                }
+
+                if(!venues.containsKey(venueToGroup)){
+                    id++;
+                    strInsert.append("(").append(id).append(", '").append(venue).append("', 'venue', ").append("null), ");
+                    toCount.add(toCounter);
+                    fromCount.add(0);
+                    fromCounter = toCounter;
+                    toCounter++;
+                    venues.put(venue, id);
+                }
+
+
+                String checkYearInVenue = year + venueToGroup;
+                if(!years.containsKey(checkYearInVenue)) {
+                    id++;
+                    strInsert.append("(").append(id).append(", '").append(venueToGroup).append("_").append(year).append("', 'year', ").append("null), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(venues.get(venueToGroup));
+                    years.put(checkYearInVenue, id);
+                }
+
 
                 id++;
                 strInsert.append("(").append(id).append(", '").append(name).append("', '").append(type).append("', ").append("null), ");
                 toCount.add(toCounter);
+                fromCounter = toCounter;
                 toCounter++;
-                fromCount.add(fromCounter);
-                if (firstFromCounter == 1) {
-                    fromCounter++;
-                    firstFromCounter++;
-                }
+                fromCount.add(years.get(checkYearInVenue));
+
+
+                //add attributes ->
 
                 if(!author.isEmpty()) {
                     for (String auth : author) {
@@ -278,14 +293,11 @@ public class SofiaSAX {
                     for (String e : ee) {
                         String[] partsEE = e.split(":  ");
                         String eee = partsEE[1];
-                        id++; /*
+                        id++;
                         if(e.contains("(type"))
                             strInsert.append("(").append(id).append(", null, 'ee (type = \"oa\")', '").append(eee).append("'), ");
                         else
-                            strInsert.append("(").append(id).append(", null, 'ee', '").append(eee).append("'), ");*/
-                        if(e.contains("https://doi.org/")) {
                             strInsert.append("(").append(id).append(", null, 'ee', '").append(eee).append("'), ");
-                        }
                         toCount.add(toCounter);
                         toCounter++;
                         fromCount.add(fromCounter);
@@ -308,11 +320,10 @@ public class SofiaSAX {
                     id++;
                     strInsert.append("(").append(id).append(", null, 'url', '").append(url).append("')");
                     toCount.add(toCounter);
-                    //toCounter++;
+                    toCounter++;
                     fromCount.add(fromCounter);
                 }
 
-                id++;
 
                 strInsert.append(";");
                 System.out.println(strInsert);
@@ -341,6 +352,7 @@ public class SofiaSAX {
             return sb.toString();
         }
     }
+
 
 
     //entry (article or inproceeding)
@@ -492,16 +504,6 @@ public class SofiaSAX {
     }
 
 
-    //Umlaute ermöglichen
-    /*public static class EntityRes implements EntityResolver {
-        @Override
-        public InputSource resolveEntity(String publicId, String systemId) throws SAXException, IOException {
-                String dtd = "<!ENTITY uuml \"&#252;\">";
-                StringReader reader = new StringReader(dtd);
-                return new InputSource(reader);
-        }
-    }
-*/
 
     //create schema for Edge-Model
     public static void createEdgeModel() throws SQLException {
@@ -528,16 +530,12 @@ public class SofiaSAX {
     }
 
 
+
     //fill edge-table of Edge-Model
     public static void edgeInserter() throws SQLException {
         Statement st = con.createStatement();
         StringBuilder sbEdgeInsert = new StringBuilder("insert into edge (from_, to_) VALUES ");
         for (int i = 0; i < toCount.size() && i < fromCount.size(); i++) {
-            if (firstTime == 1) {
-                sbEdgeInsert.append("(0, 1), ");
-                firstTime++;
-                continue;
-            }
             if (i == toCount.size() - 1) {
                 sbEdgeInsert.append("(").append(fromCount.get(i)).append(", ").append(toCount.get(i)).append(");");
             } else {
