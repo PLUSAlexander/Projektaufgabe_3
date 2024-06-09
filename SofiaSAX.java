@@ -43,7 +43,7 @@ public class SofiaSAX {
         //xPathAncestor("Nikolaus Augsten");
         //xPathDescendant("pvldb_2023");
         //xPathPreceeding("SchalerHS23");
-        xPathFollowing("SchmittKAMM23");
+        XPathAxes.xPathFollowing("SchmittKAMM23", con);
     }
 
 
@@ -552,8 +552,8 @@ public class SofiaSAX {
     }
 
 
-    //TO DO: Implementing the XPath-axes in the Edge-Model
-
+    //TO DO: Implementing the XPath-axes in the Edge-Model, IN DER XPathAxes Klasse zu finden!
+/*
     public static void xPathAncestor(String input) throws SQLException {
         String recursiveQuery = """
         WITH RECURSIVE AncestorCTE AS (
@@ -700,7 +700,7 @@ public class SofiaSAX {
         for (Integer i : preceedingIDs)
             System.out.println(i);
     }
-
+*/
 /*
     public static void xPathAncestorNotInDB(String input) throws SQLException{
         System.out.println("\n \n \n");
