@@ -34,11 +34,13 @@ public class SofiaSAX {
 
         BibHandler bibHandler = new BibHandler();
         saxParser.parse("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/", bibHandler);
-        System.out.println(bibHandler.getXML());
+        //System.out.println(bibHandler.getXML());
 
         createEdgeModel();
         bibHandler.nodeInserter();
         edgeInserter();
+
+        xPathAncestor("Nikolaus Augsten");
     }
 
 
@@ -549,7 +551,89 @@ public class SofiaSAX {
 
     //TO DO: Implementing the XPath-axes in the Edge-Model
 
+    public static void xPathAncestor(String input) throws SQLException {
+        String recursiveQuery = """
+        WITH RECURSIVE AncestorCTE AS (
+            SELECT id as start_node, from_ AS ancestor
+            FROM edge
+            JOIN node ON node.id = edge.to_
+            WHERE node.s_id = ? OR node.content = ?
+            UNION ALL
+            SELECT a.start_node, e.from_ AS ancestor
+            FROM edge e
+            INNER JOIN AncestorCTE a ON e.to_ = a.ancestor
+        )
+        SELECT DISTINCT start_node, ancestor FROM AncestorCTE
+        ORDER BY start_node, ancestor;
+        """;
 
+        try (PreparedStatement pstmt = con.prepareStatement(recursiveQuery)) {
+            pstmt.setString(1, input);
+            pstmt.setString(2, input);
+            ResultSet rs = pstmt.executeQuery();
+
+            System.out.println("\nAncestors of nodes matching: " + input);
+            Statement st = con.createStatement();
+            while (rs.next()) {
+                //System.out.println("Start Node: " + rs.getString("start_node") + ", Ancestor: " + rs.getString("ancestor"));
+                String ancestorVal = "select s_id from node where id = " + rs.getString("ancestor") + ";";
+                ResultSet rs1 = st.executeQuery(ancestorVal);
+                while (rs1.next())
+                    System.out.println("Ancestors of " + input + ": " + rs1.getString(1));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+/*
+    public static void xPathAncestorNotInDB(String input) throws SQLException{
+        System.out.println("\n \n \n");
+        System.out.println("Ancestors of: " + input);
+        List<Integer> resultIDs = new ArrayList<>();
+        Statement st = con.createStatement();
+        String getContentID = "select id from node where s_id = '" + input + "' OR content = '" + input + "';"; // hole ID
+        ResultSet rs = st.executeQuery(getContentID);
+        while (rs.next()) {
+            resultIDs.add(Integer.valueOf(rs.getString(1)));
+        }
+
+
+        List<Set<Integer>> resultSets = new ArrayList<>();
+        for (Integer i : resultIDs)
+             resultSets.add(getRecursiveAncestor(new HashSet<>(), i));
+
+
+        for (Set<Integer> s : resultSets) {
+            for (Integer i : s) {
+                String getAncestorVal = "select s_id from node where id = " + i + ";";
+                ResultSet rs2 = st.executeQuery(getAncestorVal);
+                while (rs2.next())
+                    System.out.println(rs2.getString(1));
+            }
+            System.out.println("\n");
+        }
+    }
+
+    public static Set<Integer> getRecursiveAncestor (Set<Integer> ancestors, int to) throws SQLException {
+        Statement st = con.createStatement();
+        int i = 0;
+
+        String getAncestorID = "select from_ from edge where to_ = " + to + ";";
+        ResultSet rs1 = st.executeQuery(getAncestorID);
+        while (rs1.next()) {
+            //System.out.println(rs1.getString(1));
+            ancestors.add(Integer.valueOf(rs1.getString(1)));
+            i = Integer.valueOf(rs1.getString(1));
+        }
+        if (i != 0)
+            getRecursiveAncestor(ancestors, i);
+
+        return ancestors;
+    }
+
+*/
 
     //Phase 2
 }
