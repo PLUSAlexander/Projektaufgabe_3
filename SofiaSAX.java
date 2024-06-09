@@ -42,7 +42,8 @@ public class SofiaSAX {
 
         //xPathAncestor("Nikolaus Augsten");
         //xPathDescendant("pvldb_2023");
-        xPathPreceeding("SchalerHS23");
+        //xPathPreceeding("SchalerHS23");
+        xPathFollowing("SchmittKAMM23");
     }
 
 
@@ -629,7 +630,6 @@ public class SofiaSAX {
     }
 
     public static void xPathPreceeding(String input) throws SQLException {
-        //int inputID = 0;
         List<Integer> inputIDS = new ArrayList<>();
         Statement st = con.createStatement();
         String getInputID = "select id from node where s_id = '" + input + "' or content = '" + input + "';";
@@ -647,7 +647,45 @@ public class SofiaSAX {
 
 
             for (int i = inputID - 1; i > 0; i--) {
-                //int parentOfPossibleSibling = 0;
+                String getParentofSiblingID = "select from_ from edge where to_ = " + i + ";";
+                ResultSet rsParentOfSibling = st.executeQuery(getParentofSiblingID);
+                while (rsParentOfSibling.next())
+                    if (Integer.valueOf(rsParentOfSibling.getString(1)) == parentID) {
+                        preceedingIDs.add(i);
+                    } else {
+                        break;
+                    }
+            }
+        }
+
+        for (Integer i : preceedingIDs)
+            System.out.println(i);
+    }
+
+    public static void xPathFollowing(String input) throws SQLException {
+        Statement st = con.createStatement();
+        int maxID = 0;
+        String getMaxID = "SELECT MAX(id) FROM node;";
+        ResultSet rsMax = st.executeQuery(getMaxID);
+        while (rsMax.next())
+            maxID = Integer.valueOf(rsMax.getString(1));
+
+        List<Integer> inputIDS = new ArrayList<>();
+        String getInputID = "select id from node where s_id = '" + input + "' or content = '" + input + "';";
+        ResultSet rs = st.executeQuery(getInputID);
+        while (rs.next())
+            inputIDS.add(Integer.valueOf(rs.getString(1)));
+
+        List<Integer> preceedingIDs = new ArrayList<>();
+        for (Integer inputID : inputIDS) {
+            int parentID = 0;
+            String getParentID = "select from_ from edge where to_ = " + inputID + ";";
+            ResultSet rsParent = st.executeQuery(getParentID);
+            while (rsParent.next())
+                parentID = Integer.valueOf(rsParent.getString(1));
+
+
+            for (int i = inputID + 1; i <= maxID; i++) {
                 String getParentofSiblingID = "select from_ from edge where to_ = " + i + ";";
                 ResultSet rsParentOfSibling = st.executeQuery(getParentofSiblingID);
                 while (rsParentOfSibling.next())
