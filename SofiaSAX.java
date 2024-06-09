@@ -40,7 +40,8 @@ public class SofiaSAX {
         bibHandler.nodeInserter();
         edgeInserter();
 
-        xPathAncestor("Nikolaus Augsten");
+        //xPathAncestor("Nikolaus Augsten");
+        xPathDescendant("pvldb_2023");
     }
 
 
@@ -585,6 +586,47 @@ public class SofiaSAX {
             e.printStackTrace();
         }
     }
+
+    public static void xPathDescendant(String input) throws SQLException {
+        String recursiveQuery = """
+        WITH RECURSIVE DescendantCTE AS (
+            SELECT id as start_node, to_ AS descendant
+            FROM edge
+            JOIN node ON node.id = edge.from_
+            WHERE node.s_id = ? OR node.content = ?
+            UNION ALL
+            SELECT d.start_node, e.to_ AS descendant
+            FROM edge e
+            INNER JOIN DescendantCTE d ON e.from_ = d.descendant
+        )
+        SELECT DISTINCT start_node, descendant FROM DescendantCTE
+        ORDER BY start_node, descendant;
+        """;
+
+        try (PreparedStatement pstmt = con.prepareStatement(recursiveQuery)) {
+            pstmt.setString(1, input);
+            pstmt.setString(2, input);
+            ResultSet rs = pstmt.executeQuery();
+
+            // Fetch additional details for each descendant
+            System.out.println("\nDescendants of nodes matching: " + input);
+            while (rs.next()) {
+                int descendantId = rs.getInt("descendant");
+                String getDescendantDetail = "SELECT COALESCE(s_id, content) AS identifier FROM node WHERE id = ?";
+                try (PreparedStatement pstmt2 = con.prepareStatement(getDescendantDetail)) {
+                    pstmt2.setInt(1, descendantId);
+                    ResultSet rs1 = pstmt2.executeQuery();
+                    if (rs1.next()) {
+                        String identifier = rs1.getString("identifier");
+                        System.out.println("Descendant of " + input + ": " + (identifier != null ? identifier : "No identifier available"));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
 
 
 /*
