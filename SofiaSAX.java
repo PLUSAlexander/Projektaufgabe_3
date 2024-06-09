@@ -40,10 +40,10 @@ public class SofiaSAX {
         bibHandler.nodeInserter();
         edgeInserter();
 
-        //xPathAncestor("Nikolaus Augsten");
-        //xPathDescendant("pvldb_2023");
-        //xPathPreceeding("SchalerHS23");
-        XPathAxes.xPathFollowing("SchmittKAMM23", con);
+        //XPathAxes.xPathAncestor("Nikolaus Augsten", con);
+        //XPathAxes.xPathDescendant("pvldb_2023", con);
+        XPathAxes.xPathPreceeding("SchalerHS23", con);
+        //XPathAxes.xPathFollowing("SchmittKAMM23", con);
     }
 
 
