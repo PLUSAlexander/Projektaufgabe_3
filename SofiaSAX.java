@@ -41,7 +41,8 @@ public class SofiaSAX {
         edgeInserter();
 
         //xPathAncestor("Nikolaus Augsten");
-        xPathDescendant("pvldb_2023");
+        //xPathDescendant("pvldb_2023");
+        xPathPreceeding("SchalerHS23");
     }
 
 
@@ -627,7 +628,40 @@ public class SofiaSAX {
         }
     }
 
+    public static void xPathPreceeding(String input) throws SQLException {
+        //int inputID = 0;
+        List<Integer> inputIDS = new ArrayList<>();
+        Statement st = con.createStatement();
+        String getInputID = "select id from node where s_id = '" + input + "' or content = '" + input + "';";
+        ResultSet rs = st.executeQuery(getInputID);
+        while (rs.next())
+            inputIDS.add(Integer.valueOf(rs.getString(1)));
 
+        List<Integer> preceedingIDs = new ArrayList<>();
+        for (Integer inputID : inputIDS) {
+            int parentID = 0;
+            String getParentID = "select from_ from edge where to_ = " + inputID + ";";
+            ResultSet rsParent = st.executeQuery(getParentID);
+            while (rsParent.next())
+                parentID = Integer.valueOf(rsParent.getString(1));
+
+
+            for (int i = inputID - 1; i > 0; i--) {
+                //int parentOfPossibleSibling = 0;
+                String getParentofSiblingID = "select from_ from edge where to_ = " + i + ";";
+                ResultSet rsParentOfSibling = st.executeQuery(getParentofSiblingID);
+                while (rsParentOfSibling.next())
+                    if (Integer.valueOf(rsParentOfSibling.getString(1)) == parentID) {
+                        preceedingIDs.add(i);
+                    } else {
+                        break;
+                    }
+            }
+        }
+
+        for (Integer i : preceedingIDs)
+            System.out.println(i);
+    }
 
 /*
     public static void xPathAncestorNotInDB(String input) throws SQLException{
