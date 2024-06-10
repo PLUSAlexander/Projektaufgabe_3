@@ -1,18 +1,10 @@
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-
-import org.xml.sax.Attributes;
-import org.xml.sax.SAXException;
-import org.xml.sax.helpers.DefaultHandler;
-
-import java.io.*;
 import java.util.*;
 import java.sql.*;
 
-
 public class XPathAxes {
 
+
+    //ancestors ->
     public static void xPathAncestor(String input, Connection con) throws SQLException {
         String recursiveQuery = """
         WITH RECURSIVE AncestorCTE AS (
@@ -25,29 +17,45 @@ public class XPathAxes {
             FROM edge e
             INNER JOIN AncestorCTE a ON e.to_ = a.ancestor
         )
-        SELECT DISTINCT start_node, ancestor FROM AncestorCTE
-        ORDER BY start_node, ancestor;
+        SELECT DISTINCT ancestor FROM AncestorCTE
+        ORDER BY ancestor;
         """;
+
+        Statement st = con.createStatement();
+        StringBuilder sbInsert = new StringBuilder("insert into AncestorResult VALUES ");
 
         try (PreparedStatement pstmt = con.prepareStatement(recursiveQuery)) {
             pstmt.setString(1, input);
             pstmt.setString(2, input);
             ResultSet rs = pstmt.executeQuery();
 
-            System.out.println("\nAncestors of nodes matching: " + input);
-            Statement st = con.createStatement();
+            System.out.println("\nAncestors of nodes matching " + input + " -> ");
             while (rs.next()) {
-                //System.out.println("Start Node: " + rs.getString("start_node") + ", Ancestor: " + rs.getString("ancestor"));
+                //System.out.println("Ancestor: " + rs.getString("ancestor"));
                 String ancestorVal = "select s_id from node where id = " + rs.getString("ancestor") + ";";
                 ResultSet rs1 = st.executeQuery(ancestorVal);
-                while (rs1.next())
-                    System.out.println("Ancestors of " + input + ": " + rs1.getString(1));
+                while (rs1.next()) {
+                    System.out.println("Ancestor of " + input + ": " + rs1.getString(1));
+                    sbInsert.append("('" + rs1.getString(1) + "'), ");
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        String dropAncestorTable = "drop table if exists AncestorResult;";
+        st.execute(dropAncestorTable);
+
+        String createAncestorTable = "create table AncestorResult (" + input.replaceAll(" ", "") + " varchar(255));";
+        st.execute(createAncestorTable);
+
+        sbInsert.replace(sbInsert.length() - 2, sbInsert.length(), ";");
+        st.execute(sbInsert.toString());
+
     }
 
+
+    //descendants ->
     public static void xPathDescendant(String input, Connection con) throws SQLException {
         String recursiveQuery = """
         WITH RECURSIVE DescendantCTE AS (
@@ -64,13 +72,15 @@ public class XPathAxes {
         ORDER BY start_node, descendant;
         """;
 
+        StringBuilder sbInsert = new StringBuilder("insert into DescendantResult VALUES ");
+
         try (PreparedStatement pstmt = con.prepareStatement(recursiveQuery)) {
             pstmt.setString(1, input);
             pstmt.setString(2, input);
             ResultSet rs = pstmt.executeQuery();
 
             // Fetch additional details for each descendant
-            System.out.println("\nDescendants of nodes matching: " + input);
+            System.out.println("\nDescendants of nodes matching " + input + " ->");
             while (rs.next()) {
                 int descendantId = rs.getInt("descendant");
                 String getDescendantDetail = "SELECT COALESCE(s_id, content) AS identifier FROM node WHERE id = ?";
@@ -80,15 +90,30 @@ public class XPathAxes {
                     if (rs1.next()) {
                         String identifier = rs1.getString("identifier");
                         System.out.println("Descendant of " + input + ": " + (identifier != null ? identifier : "No identifier available"));
+                        sbInsert.append("('" + rs1.getString(1) + "'), ");
                     }
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        Statement st = con.createStatement();
+
+        String dropDescendantTable = "drop table if exists DescendantResult;";
+        st.execute(dropDescendantTable);
+
+        String createDescendantTable = "create table DescendantResult (" + input.replaceAll(" ", "") + " varchar(255));";
+        st.execute(createDescendantTable);
+
+        sbInsert.replace(sbInsert.length() - 2, sbInsert.length(), ";");
+        st.execute(sbInsert.toString());
     }
 
-    public static void xPathPreceeding(String input, Connection con) throws SQLException {
+
+
+    //sibling-preceding ->
+    public static void xPathSiblingPreceding(String input, Connection con) throws SQLException {
         List<Integer> inputIDS = new ArrayList<>();
         Statement st = con.createStatement();
         String getInputID = "select id from node where s_id = '" + input + "' or content = '" + input + "';";
@@ -106,10 +131,10 @@ public class XPathAxes {
 
 
             for (int i = inputID - 1; i > 0; i--) {
-                String getParentofSiblingID = "select from_ from edge where to_ = " + i + ";";
-                ResultSet rsParentOfSibling = st.executeQuery(getParentofSiblingID);
+                String getParentOfSiblingID = "select from_ from edge where to_ = " + i + ";";
+                ResultSet rsParentOfSibling = st.executeQuery(getParentOfSiblingID);
                 while (rsParentOfSibling.next())
-                    if (Integer.valueOf(rsParentOfSibling.getString(1)) == parentID) {
+                    if (Integer.valueOf(rsParentOfSibling.getString(1)) == parentID && !preceedingIDs.contains(i)) {
                         preceedingIDs.add(i);
                     } else {
                         break;
@@ -117,11 +142,41 @@ public class XPathAxes {
             }
         }
 
-        for (Integer i : preceedingIDs)
-            System.out.println(i);
+        StringBuilder sbInsert = new StringBuilder("insert into PreSiblingResult VALUES ");
+
+        System.out.println("\nSibling-Preceding of nodes matching " + input + " ->");
+        if(preceedingIDs.isEmpty())
+            System.out.println("no Sibling-Preceding nodes.");
+        for (Integer i : preceedingIDs) {
+            String getNodeDetails = "SELECT COALESCE(s_id, content) AS identifier FROM node WHERE id = ?";
+            try (PreparedStatement pstmt2 = con.prepareStatement(getNodeDetails)) {
+                pstmt2.setInt(1, i);
+                ResultSet rs1 = pstmt2.executeQuery();
+                if (rs1.next()) {
+                    String identifier = rs1.getString("identifier");
+                    System.out.println("Sibling-Preceding of " + input + ": " + (identifier != null ? identifier : "No identifier available"));
+                    if (identifier != null)
+                        sbInsert.append("('" + identifier + "'), ");
+                }
+            }
+        }
+
+        String dropPreSiblingTable = "drop table if exists PreSiblingResult;";
+        st.execute(dropPreSiblingTable);
+
+        String createDescendantTable = "create table PreSiblingResult (" + input.replaceAll(" ", "") + " varchar(255));";
+        st.execute(createDescendantTable);
+
+        sbInsert.replace(sbInsert.length() - 2, sbInsert.length(), ";");
+        System.out.println(sbInsert);
+        if (sbInsert.toString().contains(");"))
+            st.execute(sbInsert.toString());
     }
 
-    public static void xPathFollowing(String input, Connection con) throws SQLException {
+
+
+    //sibling-following ->
+    public static void xPathSiblingFollowing(String input, Connection con) throws SQLException {
         Statement st = con.createStatement();
         int maxID = 0;
         String getMaxID = "SELECT MAX(id) FROM node;";
@@ -135,7 +190,7 @@ public class XPathAxes {
         while (rs.next())
             inputIDS.add(Integer.valueOf(rs.getString(1)));
 
-        List<Integer> preceedingIDs = new ArrayList<>();
+        List<Integer> followingIDs = new ArrayList<>();
         for (Integer inputID : inputIDS) {
             int parentID = 0;
             String getParentID = "select from_ from edge where to_ = " + inputID + ";";
@@ -145,21 +200,45 @@ public class XPathAxes {
 
 
             for (int i = inputID + 1; i <= maxID; i++) {
-                String getParentofSiblingID = "select from_ from edge where to_ = " + i + ";";
-                ResultSet rsParentOfSibling = st.executeQuery(getParentofSiblingID);
+                String getParentOfSiblingID = "select from_ from edge where to_ = " + i + ";";
+                ResultSet rsParentOfSibling = st.executeQuery(getParentOfSiblingID);
                 while (rsParentOfSibling.next())
-                    if (Integer.valueOf(rsParentOfSibling.getString(1)) == parentID) {
-                        preceedingIDs.add(i);
+                    if (Integer.valueOf(rsParentOfSibling.getString(1)) == parentID && !followingIDs.contains(i)) {
+                        followingIDs.add(i);
                     } else {
                         break;
                     }
             }
         }
 
-        for (Integer i : preceedingIDs)
-            System.out.println(i);
+        StringBuilder sbInsert = new StringBuilder("insert into FolSiblingResult VALUES ");
+
+        System.out.println("\nSibling-Following of nodes matching " + input + " ->");
+        if(followingIDs.isEmpty())
+            System.out.println("no Sibling-Following nodes.");
+        for (Integer i : followingIDs) {
+            String getNodeDetails = "SELECT COALESCE(s_id, content) AS identifier FROM node WHERE id = ?";
+            try (PreparedStatement pstmt2 = con.prepareStatement(getNodeDetails)) {
+                pstmt2.setInt(1, i);
+                ResultSet rs1 = pstmt2.executeQuery();
+                if (rs1.next()) {
+                    String identifier = rs1.getString("identifier");
+                    System.out.println("Sibling-Following of " + input + ": " + (identifier != null ? identifier : "No identifier available"));
+                    if (identifier != null)
+                        sbInsert.append("('" + identifier + "'), ");
+                }
+            }
+        }
+
+        String dropFolSiblingTable = "drop table if exists FolSiblingResult;";
+        st.execute(dropFolSiblingTable);
+
+        String createDescendantTable = "create table FolSiblingResult (" + input.replaceAll(" ", "") + " varchar(255));";
+        st.execute(createDescendantTable);
+
+        sbInsert.replace(sbInsert.length() - 2, sbInsert.length(), ";");
+        System.out.println(sbInsert);
+        if (sbInsert.toString().contains(");"))
+            st.execute(sbInsert.toString());
     }
-
-
-
 }
