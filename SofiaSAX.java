@@ -40,11 +40,11 @@ public class SofiaSAX {
         //bibHandler.nodeInserter();
         //edgeInserter();
 
-        XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
-        XPathAxes.xPathDescendant("pvldb_2023", con);
+        //XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
+        //XPathAxes.xPathDescendant("pvldb_2023", con);
         //XPathAxes.xPathSiblingFollowing("SchalerHS23", con);
         XPathAxes.xPathSiblingPreceding("SchalerHS23", con);
-        XPathAxes.xPathSiblingFollowing("SchmittKAMM23", con);
+        //XPathAxes.xPathSiblingFollowing("SchmittKAMM23", con);
         //XPathAxes.xPathSiblingPreceding("SchmittKAMM23", con);
 
     }

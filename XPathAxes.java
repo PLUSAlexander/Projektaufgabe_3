@@ -31,12 +31,14 @@ public class XPathAxes {
 
             System.out.println("\nAncestors of nodes matching " + input + " -> ");
             while (rs.next()) {
+                int ancestorId = rs.getInt("ancestor");
+                //System.out.println(ancestorId);
                 //System.out.println("Ancestor: " + rs.getString("ancestor"));
                 String ancestorVal = "select s_id from node where id = " + rs.getString("ancestor") + ";";
                 ResultSet rs1 = st.executeQuery(ancestorVal);
                 while (rs1.next()) {
                     System.out.println("Ancestor of " + input + ": " + rs1.getString(1));
-                    sbInsert.append("('" + rs1.getString(1) + "'), ");
+                    sbInsert.append("(" + ancestorId + ", '" + rs1.getString(1) + "'), ");
                 }
             }
         } catch (SQLException e) {
@@ -46,12 +48,12 @@ public class XPathAxes {
         String dropAncestorTable = "drop table if exists AncestorResult;";
         st.execute(dropAncestorTable);
 
-        String createAncestorTable = "create table AncestorResult (" + input.replaceAll(" ", "") + " varchar(255));";
+        String createAncestorTable = "create table AncestorResult (id integer, " + input.replaceAll(" ", "") + " varchar(255));";
         st.execute(createAncestorTable);
 
         sbInsert.replace(sbInsert.length() - 2, sbInsert.length(), ";");
-        st.execute(sbInsert.toString());
-
+        if (sbInsert.toString().contains(");"))
+            st.execute(sbInsert.toString());
     }
 
 
@@ -90,7 +92,7 @@ public class XPathAxes {
                     if (rs1.next()) {
                         String identifier = rs1.getString("identifier");
                         System.out.println("Descendant of " + input + ": " + (identifier != null ? identifier : "No identifier available"));
-                        sbInsert.append("('" + rs1.getString(1) + "'), ");
+                        sbInsert.append("(" + descendantId + ", '" + rs1.getString(1) + "'), ");
                     }
                 }
             }
@@ -103,11 +105,13 @@ public class XPathAxes {
         String dropDescendantTable = "drop table if exists DescendantResult;";
         st.execute(dropDescendantTable);
 
-        String createDescendantTable = "create table DescendantResult (" + input.replaceAll(" ", "") + " varchar(255));";
+        String createDescendantTable = "create table DescendantResult (id integer, " + input.replaceAll(" ", "") + " varchar(255));";
         st.execute(createDescendantTable);
 
         sbInsert.replace(sbInsert.length() - 2, sbInsert.length(), ";");
-        st.execute(sbInsert.toString());
+        //System.out.println(sbInsert);
+        if (sbInsert.toString().contains(");"))
+            st.execute(sbInsert.toString());
     }
 
 
@@ -128,7 +132,6 @@ public class XPathAxes {
             ResultSet rsParent = st.executeQuery(getParentID);
             while (rsParent.next())
                 parentID = Integer.valueOf(rsParent.getString(1));
-
 
             for (int i = inputID - 1; i > 0; i--) {
                 String getParentOfSiblingID = "select from_ from edge where to_ = " + i + ";";
@@ -156,7 +159,7 @@ public class XPathAxes {
                     String identifier = rs1.getString("identifier");
                     System.out.println("Sibling-Preceding of " + input + ": " + (identifier != null ? identifier : "No identifier available"));
                     if (identifier != null)
-                        sbInsert.append("('" + identifier + "'), ");
+                        sbInsert.append("(" + i + ", '" + identifier + "'), ");
                 }
             }
         }
@@ -164,11 +167,11 @@ public class XPathAxes {
         String dropPreSiblingTable = "drop table if exists PreSiblingResult;";
         st.execute(dropPreSiblingTable);
 
-        String createDescendantTable = "create table PreSiblingResult (" + input.replaceAll(" ", "") + " varchar(255));";
+        String createDescendantTable = "create table PreSiblingResult (id integer, " + input.replaceAll(" ", "") + " varchar(255));";
         st.execute(createDescendantTable);
 
         sbInsert.replace(sbInsert.length() - 2, sbInsert.length(), ";");
-        System.out.println(sbInsert);
+        //System.out.println(sbInsert);
         if (sbInsert.toString().contains(");"))
             st.execute(sbInsert.toString());
     }
@@ -225,7 +228,7 @@ public class XPathAxes {
                     String identifier = rs1.getString("identifier");
                     System.out.println("Sibling-Following of " + input + ": " + (identifier != null ? identifier : "No identifier available"));
                     if (identifier != null)
-                        sbInsert.append("('" + identifier + "'), ");
+                        sbInsert.append("(" + i + ", '" + identifier + "'), ");
                 }
             }
         }
@@ -233,11 +236,11 @@ public class XPathAxes {
         String dropFolSiblingTable = "drop table if exists FolSiblingResult;";
         st.execute(dropFolSiblingTable);
 
-        String createDescendantTable = "create table FolSiblingResult (" + input.replaceAll(" ", "") + " varchar(255));";
+        String createDescendantTable = "create table FolSiblingResult (id integer, " + input.replaceAll(" ", "") + " varchar(255));";
         st.execute(createDescendantTable);
 
         sbInsert.replace(sbInsert.length() - 2, sbInsert.length(), ";");
-        System.out.println(sbInsert);
+        //System.out.println(sbInsert);
         if (sbInsert.toString().contains(");"))
             st.execute(sbInsert.toString());
     }
