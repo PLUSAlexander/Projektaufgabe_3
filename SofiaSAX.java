@@ -21,29 +21,33 @@ public class SofiaSAX {
     private static List<Integer> toCount = new ArrayList<>();
     private static int fromCounter = 1;
     private static List<Integer> fromCount = new ArrayList<>();
-
     private static Map<String, Integer> venues = new HashMap<>();
     private static Map<String, Integer> years = new HashMap<>();
+    private static int first = 1;
+    private static boolean currentEntryIsValid = false;
 
 
     public static void main(String[] args) throws ParserConfigurationException, SAXException, IOException, SQLException {
         con = DriverManager.getConnection(url, user, pwd);
 
-        //SAXParserFactory factory = SAXParserFactory.newInstance();
-        //SAXParser saxParser = factory.newSAXParser();
+        System.setProperty("jdk.xml.entityExpansionLimit", "4000000");
 
-        //BibHandler bibHandler = new BibHandler();
-        //saxParser.parse("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/", bibHandler);
-        //System.out.println(bibHandler.getXML());
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        SAXParser saxParser = factory.newSAXParser();
 
-        //createEdgeModel();
-        //bibHandler.nodeInserter();
-        //edgeInserter();
+        BibHandler bibHandler = new BibHandler();
+        saxParser.parse("/C://Users//Startklar//Downloads//dblp1.xml//dblp.xml", bibHandler);
+        //System.out.println(bibHandler.getXML().toString());
+        CreateXML.mainMethod(bibHandler.getXML().toString());
+
+        createEdgeModel();
+        bibHandler.nodeInserter();
+        edgeInserter();
 
         //XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
         //XPathAxes.xPathDescendant("pvldb_2023", con);
         //XPathAxes.xPathSiblingFollowing("SchalerHS23", con);
-        XPathAxes.xPathSiblingPreceding("SchalerHS23", con);
+        //XPathAxes.xPathSiblingPreceding("SchalerHS23", con);
         //XPathAxes.xPathSiblingFollowing("SchmittKAMM23", con);
         //XPathAxes.xPathSiblingPreceding("SchmittKAMM23", con);
 
@@ -59,7 +63,7 @@ public class SofiaSAX {
         private StringBuilder elementValue;
 
         //element types ->
-        private static final String BIB = "bib";
+        private static final String BIB = "dblp";
         private static final String ARTICLE = "article";
         private static final String INPROCEEDINGS = "inproceedings";
         private static final String AUTHOR = "author";
@@ -95,22 +99,33 @@ public class SofiaSAX {
         public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
             switch (qName) {
                 case BIB -> xmlDoc.entryList = new ArrayList<>();
-                case ARTICLE, INPROCEEDINGS -> {
-                    xmlDoc.entryList.add(new BibEntry());
+                case ARTICLE, INPROCEEDINGS-> {
                     String key = attributes.getValue("key");
-                    latestEntry().setKey("key = " + key);
-                    latestEntry().setType(qName);
+                    currentEntryIsValid = false;
+                    if (key != null && (key.startsWith("journals/pvldb/") || key.startsWith("conf/vldb/") || key.startsWith("journals/pacmmod/") || key.startsWith("conf/sigmod/") || key.startsWith("conf/icde/"))) {
+                        currentEntryIsValid = true;
+                        xmlDoc.entryList.add(new BibEntry());
+                        latestEntry().setKey("key = " + key);
+                        latestEntry().setType(qName);
+                        first++;
+                    }
+
                 }
+
                 case CROSSREF, BOOKTITLE, AUTHOR, TITLE, PAGES, YEAR, VOLUME, JOURNAL, NUMBER, URL -> {
-                    elementValue = new StringBuilder();
-                    elementValue.append(qName).append(":  ");
+                    if (currentEntryIsValid) {
+                        elementValue = new StringBuilder();
+                        elementValue.append(qName).append(":  ");
+                    }
                 }
                 case EE -> {
-                    elementValue = new StringBuilder();
-                    elementValue.append(qName);
-                    String eeType = attributes.getValue("type");
-                    if (eeType != null) elementValue.append("(type = ").append(eeType).append(")");
-                    elementValue.append(":  ");
+                    if (currentEntryIsValid) {
+                        elementValue = new StringBuilder();
+                        elementValue.append(qName);
+                        String eeType = attributes.getValue("type");
+                        if (eeType != null) elementValue.append("(type = ").append(eeType).append(")");
+                        elementValue.append(":  ");
+                    }
                 }
             }
         }
@@ -118,18 +133,20 @@ public class SofiaSAX {
 
         @Override
         public void endElement(String uri, String localName, String qName) throws SAXException {
-            switch (qName) {
-                case TITLE -> latestEntry().setTitle(elementValue.toString());
-                case PAGES -> latestEntry().setPages(elementValue.toString());
-                case YEAR -> latestEntry().setYear(elementValue.toString());
-                case VOLUME -> latestEntry().setVolume(elementValue.toString());
-                case JOURNAL -> latestEntry().setJournal(elementValue.toString());
-                case AUTHOR -> latestEntry().setAuthor(elementValue.toString());
-                case NUMBER -> latestEntry().setNumber(elementValue.toString());
-                case EE -> latestEntry().setEe(elementValue.toString());
-                case URL -> latestEntry().setUrl(elementValue.toString());
-                case BOOKTITLE -> latestEntry().setBookTitle(elementValue.toString());
-                case CROSSREF -> latestEntry().setCrossRef(elementValue.toString());
+            if (currentEntryIsValid) {
+                switch (qName) {
+                    case TITLE -> latestEntry().setTitle(elementValue.toString());
+                    case PAGES -> latestEntry().setPages(elementValue.toString());
+                    case YEAR -> latestEntry().setYear(elementValue.toString());
+                    case VOLUME -> latestEntry().setVolume(elementValue.toString());
+                    case JOURNAL -> latestEntry().setJournal(elementValue.toString());
+                    case AUTHOR -> latestEntry().setAuthor(elementValue.toString());
+                    case NUMBER -> latestEntry().setNumber(elementValue.toString());
+                    case EE -> latestEntry().setEe(elementValue.toString());
+                    case URL -> latestEntry().setUrl(elementValue.toString());
+                    case BOOKTITLE -> latestEntry().setBookTitle(elementValue.toString());
+                    case CROSSREF -> latestEntry().setCrossRef(elementValue.toString());
+                }
             }
         }
 
@@ -217,17 +234,20 @@ public class SofiaSAX {
 
                 //add attributes ->
 
-                if(!author.isEmpty()) {
+                if (!author.isEmpty()) {
                     for (String auth : author) {
                         String[] partsAu = auth.split(":  ");
-                        String a = partsAu[1];
-                        id++;
-                        strInsert.append("(").append(id).append(", null, 'author', '").append(a).append("'), ");
-                        toCount.add(toCounter);
-                        toCounter++;
-                        fromCount.add(fromCounter);
+                        if (partsAu.length > 1) {
+                            String a = partsAu[1].replace("'", "''");
+                            id++;
+                            strInsert.append("(").append(id).append(", null, 'author', '").append(a).append("'), ");
+                            toCount.add(toCounter);
+                            toCounter++;
+                            fromCount.add(fromCounter);
+                        }
                     }
                 }
+
 
                 if(titleA != null) {
                     String[] partsT = titleA.split(":  ");
@@ -353,7 +373,7 @@ public class SofiaSAX {
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();
-            sb.append('\n').append("bib").append('\n');
+            sb.append('\n').append("bib").append('\n'); // changed
             for (BibEntry entry : entryList) {
                 sb.append("   ").append(entry).append("\n");
             }
