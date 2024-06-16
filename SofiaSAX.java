@@ -16,6 +16,7 @@ public class SofiaSAX {
     private static String url = "jdbc:postgresql://localhost/postgres";
     private static String user = "postgres";
     private static String pwd = "1234";
+
     private static int id = 0;
     private static int toCounter = 1;
     private static List<Integer> toCount = new ArrayList<>();
@@ -23,8 +24,10 @@ public class SofiaSAX {
     private static List<Integer> fromCount = new ArrayList<>();
     private static Map<String, Integer> venues = new HashMap<>();
     private static Map<String, Integer> years = new HashMap<>();
+
     private static int first = 1;
     private static boolean currentEntryIsValid = false;
+
 
 
     public static void main(String[] args) throws ParserConfigurationException, SAXException, IOException, SQLException {
@@ -36,13 +39,14 @@ public class SofiaSAX {
         SAXParser saxParser = factory.newSAXParser();
 
         BibHandler bibHandler = new BibHandler();
-        saxParser.parse("/C://Users//Startklar//Downloads//dblp1.xml//dblp.xml", bibHandler);
+        //saxParser.parse("/C://Users//Startklar//Downloads//dblp1.xml//dblp.xml", bibHandler);
         //System.out.println(bibHandler.getXML().toString());
-        CreateXML.mainMethod(bibHandler.getXML().toString());
+        //CreateXML.mainMethod(bibHandler.getXML().toString());
 
-        createEdgeModel();
-        bibHandler.nodeInserter();
-        edgeInserter();
+        //createEdgeModel();
+        //bibHandler.nodeInserter();
+        //edgeInserter();
+        augstenChecker();
 
         //XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
         //XPathAxes.xPathDescendant("pvldb_2023", con);
@@ -196,20 +200,25 @@ public class SofiaSAX {
 
                 //group after venue and year ->
 
-                String venueToGroup = venue;   //for pacmmod = sigmod; group both under sigmod
+                String venueToGroup = venue;   //for pacmmod = sigmod && vldb = pvldb; group both under sigmod / pvldb
 
                 if(venue.equals("pacmmod")) {
                     venueToGroup = "sigmod";
                 }
 
+                if(venue.equals("vldb")){
+                    venueToGroup = "pvldb";
+                }
+
+
                 if(!venues.containsKey(venueToGroup)){
                     id++;
-                    strInsert.append("(").append(id).append(", '").append(venue).append("', 'venue', ").append("null), ");
+                    strInsert.append("(").append(id).append(", '").append(venueToGroup).append("', 'venue', ").append("null), ");
                     toCount.add(toCounter);
                     fromCount.add(0);
                     fromCounter = toCounter;
                     toCounter++;
-                    venues.put(venue, id);
+                    venues.put(venueToGroup, id);
                 }
 
 
@@ -354,7 +363,7 @@ public class SofiaSAX {
 
 
                 strInsert.append(";");
-                System.out.println(strInsert);
+                //System.out.println(strInsert);
                 stmInsert.execute(strInsert.toString());
             }
         }
@@ -575,9 +584,52 @@ public class SofiaSAX {
     }
 
 
+    public static void augstenChecker() throws SQLException {
+        //int sigmodID = 1;
+        int icdeID = 67133;
+        int pvldbID = 152572;
+        int sigmodCount = 0;
+        int icdeCount = 0;
+        int pvldbCount = 0;
+
+        List<Integer> includedVenueYears = new ArrayList<>();
+        Statement st = con.createStatement();
+        String sql1 = "select from_ from edge where to_ IN (SELECT from_ FROM edge WHERE to_ IN (SELECT id FROM node WHERE content = 'Nikolaus Augsten'));";
+        ResultSet rs = st.executeQuery(sql1);
+        while (rs.next())
+            includedVenueYears.add(Integer.valueOf(rs.getString(1)));
+
+        for (Integer i : includedVenueYears) {
+            if (i < icdeID) {
+                sigmodCount++;
+            } else if (i < pvldbID) {
+                icdeCount++;
+            } else {
+                pvldbCount++;
+            }
+        }
+
+        System.out.println(sigmodCount);
+        System.out.println(icdeCount);
+        System.out.println(pvldbCount);
+
+        st.execute("drop table if exists augstenCount;");
+        st.execute("create table augstenCount (venue varchar(255), count int);");
+
+        st.execute("insert into augstenCount (venue, count) VALUES ('sigmod', " + sigmodCount + "), ('icde', " + icdeCount + "), ('vldb', " + pvldbCount + ");");
+
+    }
     //Implementing the XPath-axes in the Edge-Model --> in the XPathAxes-Class
 
 
 
+
     //Phase 2
+
+    //create my_small_bib.xml --> in the CreateXML-Class
+
+
+    //create Schema for accelerator
+
+
 }
