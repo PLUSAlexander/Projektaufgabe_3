@@ -27,6 +27,7 @@ public class SofiaSAX {
     private static int childrenID = 0;
     private static int first = 1;
     private static boolean currentEntryIsValid = false;
+    private static Map<Integer, Integer> postorderMap = new HashMap<>();
 
 
 
@@ -47,7 +48,9 @@ public class SofiaSAX {
         createEdgeModel();
         bibHandler.nodeInserter();
         edgeInserter();
-        postorder(0);
+        //postorder(0);
+        createAccelSchema();
+        pre_post_order(bibHandler.getXML());
         //augstenChecker();
 
         //XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
@@ -623,7 +626,35 @@ public class SofiaSAX {
     }
     //Implementing the XPath-axes in the Edge-Model --> in the XPathAxes-Class
 
-    public static void postorder(int id) throws SQLException {
+
+
+    //Phase 2
+
+    //create my_small_bib.xml --> in the CreateXML-Class
+
+    public static void preorder(int id) throws SQLException {
+        Statement st = con.createStatement();
+        ArrayList<Integer> childrenIDs = new ArrayList<>();
+
+        // Abrufen der Kinder des aktuellen Knotens
+        String childrenQuery = "SELECT DISTINCT to_ FROM edge WHERE from_ = " + id + ";";
+        ResultSet rs = st.executeQuery(childrenQuery);
+
+        // Sammeln aller Kinder-IDs
+        while (rs.next()) {
+            childrenIDs.add(rs.getInt(1));
+        }
+
+        // Aktuellen Knoten verarbeiten und ausgeben
+        System.out.println(id + " ||| preorderID: " + childrenID);
+        childrenID++;  // PreorderID nach der Verarbeitung inkrementieren
+
+        // Rekursive Preorder-Traversierung für jedes Kind
+        for (Integer childId : childrenIDs) {
+            preorder(childId);
+        }
+    }
+    public static Map<Integer, Integer> postorder(int id) throws SQLException {
         Statement st = con.createStatement();
         ArrayList<Integer> childrenIDs = new ArrayList<>();
 
@@ -638,17 +669,318 @@ public class SofiaSAX {
             postorder(childId);
         }
 
-        System.out.println(id + " ||| postorderID: " + childrenID);
+        //System.out.println(id + " ||| postorderID: " + childrenID);
+        postorderMap.put(id, childrenID);
         childrenID++;
+        return postorderMap;
+    }
+
+    //create Schema for accelerator
+    public static void createAccelSchema() throws SQLException {
+        String dropAccel = "DROP TABLE if exists accel;";
+        String dropContent = "DROP TABLE if exists content;";
+        String dropAttribute = "DROP TABLE if exists attributes;";
+        Statement stmDropAccel = con.createStatement();
+        Statement stmDropContent = con.createStatement();
+        Statement stmDropAttribute = con.createStatement();
+        stmDropAttribute.execute(dropAttribute);
+        stmDropAccel.execute(dropAccel);
+        stmDropContent.execute(dropContent);
+
+        String createAccel = "CREATE TABLE accel(id int, post int, s_id VARCHAR(255), parent int, type VARCHAR(255), PRIMARY KEY(id));";
+        String createContent = "CREATE TABLE content(id int, text VARCHAR(255), PRIMARY KEY(id));";
+        String createAttribute = "CREATE TABLE attributes(id int, text VARCHAR(255), PRIMARY KEY(id));";
+        Statement stmCreateAccel = con.createStatement();
+        Statement stmCreateContent = con.createStatement();
+        Statement stmCreateAttribute = con.createStatement();
+        stmCreateAttribute.execute(createAttribute);
+        stmCreateContent.execute(createContent);
+        stmCreateAccel.execute(createAccel);
+
+        postorder(0);
+        String strInsert = "INSERT INTO accel(id, post, s_id, parent, type) VALUES (0, " + postorderMap.get(0) + ", 'bib', null, 'bib');";
+        Statement st = con.createStatement();
+        st.execute(strInsert);
     }
 
 
-    //Phase 2
 
-    //create my_small_bib.xml --> in the CreateXML-Class
+    //insert Data with pre-/post-order into schema
+    public static void pre_post_order(Bib xmlDoc) throws SQLException {
+        Map<String, Integer> venues = new HashMap<>();
+        Map<String, Integer> years = new HashMap<>();
+        int id = 0;
+
+        List<BibEntry> entryList = xmlDoc.getEntryList();
+
+        Statement dropIndexStm = con.createStatement();
+        String dropIndex = "DROP INDEX if exists parentFinding_idx;";
+        dropIndexStm.execute(dropIndex);
+
+        Statement createIndexStm = con.createStatement();
+        String createIndex = "CREATE INDEX parentFinding_idx on edge USING hash (to_);";
+        createIndexStm.execute(createIndex);
+
+        for (BibEntry entry : entryList) {
+
+            String titleA = entry.getTitle();
+            String pagesA = entry.getPages();
+            String volumeA = entry.getVolume();
+            String journalA = entry.getJournal();
+            String numberA = entry.getNumber();
+            String urlA = entry.getUrl();
+            String booktitleA = entry.getBookTitle();
+            String crossrefA = entry.getCrossRef();
+            String type = entry.getType();
+            List<String> ee = entry.getEE();
+            List<String> author = entry.getAuthors();
+
+            String yearA = entry.getYear();
+            String[] partsY = yearA.split(":  ");
+            String year = partsY[1];
+
+            String key = entry.getKey();
+            String[] parts = key.split("/");
+            String venue = parts[1];
+            String name = parts[2];
+
+            Statement stmInsert = con.createStatement();
+            Statement stmInsertContent = con.createStatement();
+            Statement stmInsertAttribute = con.createStatement();
+            StringBuilder strInsert = new StringBuilder("INSERT INTO accel(id, post, s_id, parent, type) VALUES ");
+            StringBuilder strInsertContent = new StringBuilder("INSERT INTO content(id, text) VALUES ");
+            StringBuilder strInsertAttributes = new StringBuilder("INSERT INTO attributes(id, text) VALUES ");
+
+            //group after venue and year ->
+
+            String venueToGroup = venue;   //for pacmmod = sigmod && vldb = pvldb; group both under sigmod / pvldb
+
+            if(venue.equals("pacmmod")) {
+                venueToGroup = "sigmod";
+            }
+
+            if(venue.equals("vldb")){
+                venueToGroup = "pvldb";
+            }
+
+            String selectParentID = "SELECT from_ FROM edge WHERE to_ =  ?;";
+            PreparedStatement pstm = con.prepareStatement(selectParentID);
+
+            if(!venues.containsKey(venueToGroup)){
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", '").append(venueToGroup).append("',").append(parent).append(",").append("'venue'), ");
+                venues.put(venueToGroup, id);
+            }
 
 
-    //create Schema for accelerator
+            String checkYearInVenue = year + venueToGroup;
+            if(!years.containsKey(checkYearInVenue)) {
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", '").append(checkYearInVenue).append("',").append(parent).append(",").append("'year'), ");
+                years.put(checkYearInVenue, id);
+            }
+
+
+            id++;
+            pstm.setInt(1, id);
+            ResultSet rsParent1 = pstm.executeQuery();
+            int parent1 = -1;
+            while (rsParent1.next())
+                parent1 = rsParent1.getInt(1);
+            strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", '").append(name).append("',").append(parent1).append(",'").append(type).append("'), ");
+            String[] keyB = key.split("= ");
+            key = keyB[1].replace("'", "''");
+            strInsertAttributes.append("(").append(id).append(",'").append(key).append("')");
+
+            //add attributes ->
+
+            if (!author.isEmpty()) {
+                for (String auth : author) {
+                    String[] partsAu = auth.split(":  ");
+                    if (partsAu.length > 1) {
+                        String a = partsAu[1].replace("'", "''");
+                        id++;
+                        pstm.setInt(1, id);
+                        ResultSet rsParent = pstm.executeQuery();
+                        int parent = -1;
+                        while (rsParent.next())
+                            parent = rsParent.getInt(1);
+                        strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'author'), ");
+                        strInsertContent.append("(").append(id).append(",'").append(a).append("'), ");
+                    }
+                }
+            }
+
+
+            if(titleA != null) {
+                String[] partsT = titleA.split(":  ");
+                String title = partsT[1].replace("'", "''");
+                title = shortenTitle(title);
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'title'), ");
+                strInsertContent.append("(").append(id).append(",'").append(title).append("'), ");
+            }
+
+            if(pagesA != null) {
+                String[] partsP = pagesA.split(":  ");
+                String pages = partsP[1].replace("'", "''");
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'pages'), ");
+                strInsertContent.append("(").append(id).append(",'").append(pages).append("'), ");
+            }
+
+            if(year != null) {
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'year'), ");
+                strInsertContent.append("(").append(id).append(",'").append(year.replace("'", "''")).append("'), ");
+            }
+
+            if(booktitleA != null) {
+                String[] partsB = booktitleA.split(":  ");
+                String booktitle = partsB[1].replace("'", "''");
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'booktitle'), ");
+                strInsertContent.append("(").append(id).append(",'").append(booktitle).append("'), ");
+            }
+
+            if(volumeA != null) {
+                String[] partsV = volumeA.split(":  ");
+                String volume = partsV[1].replace("'", "''");
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'volume'), ");
+                strInsertContent.append("(").append(id).append(",'").append(volume).append("'), ");
+            }
+
+            if(journalA != null) {
+                String[] partsJ = journalA.split(":  ");
+                String journal = partsJ[1].replace("'", "''");
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'journal'), ");
+                strInsertContent.append("(").append(id).append(",'").append(journal).append("'), ");
+            }
+
+            if(numberA != null) {
+                String[] partsN = numberA.split(":  ");
+                String number = partsN[1].replace("'", "''");
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'number'), ");
+                strInsertContent.append("(").append(id).append(",'").append(number).append("'), ");
+            }
+
+            if(!ee.isEmpty()) {
+                for (String e : ee) {
+                    String[] partsEE = e.split(":  ");
+                    String eee = partsEE[1].replace("'", "''");
+                    id++;
+                    pstm.setInt(1, id);
+                    ResultSet rsParent = pstm.executeQuery();
+                    int parent = -1;
+                    while (rsParent.next())
+                        parent = rsParent.getInt(1);
+                    if(e.contains("(type")) {
+                        strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'ee (type = \"oa\")'), ");
+                        strInsertContent.append("(").append(id).append(", '").append(eee).append("'), ");
+                    }
+                    else {
+                        strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'ee'), ");
+                        strInsertContent.append("(").append(id).append(", '").append(eee).append("'), ");
+                    }
+                }
+            }
+
+            if(crossrefA != null) {
+                String[] partsC = crossrefA.split(":  ");
+                String crossref = partsC[1].replace("'", "''");
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'crossref'), ");
+                strInsertContent.append("(").append(id).append(",'").append(crossref).append("'), ");
+            }
+
+            if(urlA != null) {
+                String[] partsU = urlA.split(":  ");
+                String url = partsU[1].replace("'", "''");
+                id++;
+                pstm.setInt(1, id);
+                ResultSet rsParent = pstm.executeQuery();
+                int parent = -1;
+                while (rsParent.next())
+                    parent = rsParent.getInt(1);
+                strInsert.append("(").append(id).append(", " + postorderMap.get(id) + ", null, ").append(parent).append(",").append("'url')");
+                strInsertContent.append("(").append(id).append(", '").append(url).append("')");
+            }
+
+
+            strInsert.append(";");
+            strInsertContent.append(";");
+            strInsertAttributes.append(";");
+
+            //System.out.println(strInsertAttributes);
+            //System.out.println(strInsert);
+            //System.out.println(strInsertContent);
+
+            stmInsert.execute(strInsert.toString());
+            stmInsertContent.execute(strInsertContent.toString());
+            stmInsertAttribute.execute(strInsertAttributes.toString());
+        }
+    }
+
+    public static String shortenTitle(String input) {
+        if (input.length() <= 255) {
+            return input;
+        } else {
+            return input.substring(0, 255);
+        }
+    }
 
 
 }
