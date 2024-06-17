@@ -24,7 +24,7 @@ public class SofiaSAX {
     private static List<Integer> fromCount = new ArrayList<>();
     private static Map<String, Integer> venues = new HashMap<>();
     private static Map<String, Integer> years = new HashMap<>();
-
+    private static int childrenID = 0;
     private static int first = 1;
     private static boolean currentEntryIsValid = false;
 
@@ -39,14 +39,16 @@ public class SofiaSAX {
         SAXParser saxParser = factory.newSAXParser();
 
         BibHandler bibHandler = new BibHandler();
-        //saxParser.parse("/C://Users//Startklar//Downloads//dblp1.xml//dblp.xml", bibHandler);
+        saxParser.parse("C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/", bibHandler); ///C://Users//Startklar//Downloads//dblp1.xml//dblp.xml
+        ///
         //System.out.println(bibHandler.getXML().toString());
         //CreateXML.mainMethod(bibHandler.getXML().toString());
 
-        //createEdgeModel();
-        //bibHandler.nodeInserter();
-        //edgeInserter();
-        augstenChecker();
+        createEdgeModel();
+        bibHandler.nodeInserter();
+        edgeInserter();
+        postorder(0);
+        //augstenChecker();
 
         //XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
         //XPathAxes.xPathDescendant("pvldb_2023", con);
@@ -67,7 +69,7 @@ public class SofiaSAX {
         private StringBuilder elementValue;
 
         //element types ->
-        private static final String BIB = "dblp";
+        private static final String BIB = "bib";
         private static final String ARTICLE = "article";
         private static final String INPROCEEDINGS = "inproceedings";
         private static final String AUTHOR = "author";
@@ -621,7 +623,24 @@ public class SofiaSAX {
     }
     //Implementing the XPath-axes in the Edge-Model --> in the XPathAxes-Class
 
+    public static void postorder(int id) throws SQLException {
+        Statement st = con.createStatement();
+        ArrayList<Integer> childrenIDs = new ArrayList<>();
 
+        String childrenQuery = "SELECT DISTINCT to_ FROM edge WHERE from_ = " + id + ";";
+        ResultSet rs = st.executeQuery(childrenQuery);
+
+        while (rs.next()) {
+            childrenIDs.add(rs.getInt(1));
+        }
+
+        for (Integer childId : childrenIDs) {
+            postorder(childId);
+        }
+
+        System.out.println(id + " ||| postorderID: " + childrenID);
+        childrenID++;
+    }
 
 
     //Phase 2
