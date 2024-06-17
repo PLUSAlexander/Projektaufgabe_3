@@ -24,10 +24,12 @@ public class SofiaSAX {
     private static List<Integer> fromCount = new ArrayList<>();
     private static Map<String, Integer> venues = new HashMap<>();
     private static Map<String, Integer> years = new HashMap<>();
-    private static int childrenID = 0;
+    private static int childrenIDpre = 0;
+    private static int childrenIDpost = 0;
     private static int first = 1;
     private static boolean currentEntryIsValid = false;
     private static Map<Integer, Integer> postorderMap = new HashMap<>();
+    private static Map<Integer, Integer> preorderMap = new HashMap<>();
 
 
 
@@ -40,18 +42,18 @@ public class SofiaSAX {
         SAXParser saxParser = factory.newSAXParser();
 
         BibHandler bibHandler = new BibHandler();
-        saxParser.parse("C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/", bibHandler); ///C://Users//Startklar//Downloads//dblp1.xml//dblp.xml
-        ///
+        saxParser.parse("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/", bibHandler); ///C://Users//Startklar//Downloads//dblp1.xml//dblp.xml
+        ///C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/
         //System.out.println(bibHandler.getXML().toString());
         //CreateXML.mainMethod(bibHandler.getXML().toString());
 
         createEdgeModel();
         bibHandler.nodeInserter();
         edgeInserter();
-        //postorder(0);
-        createAccelSchema();
-        pre_post_order(bibHandler.getXML());
+        //createAccelSchema();
+        //pre_post_order(bibHandler.getXML());
         //augstenChecker();
+        phase2Aufgabe3();
 
         //XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
         //XPathAxes.xPathDescendant("pvldb_2023", con);
@@ -631,29 +633,27 @@ public class SofiaSAX {
     //Phase 2
 
     //create my_small_bib.xml --> in the CreateXML-Class
-
-    public static void preorder(int id) throws SQLException {
+    public static Map<Integer, Integer> preorder(int id) throws SQLException {
         Statement st = con.createStatement();
         ArrayList<Integer> childrenIDs = new ArrayList<>();
 
-        // Abrufen der Kinder des aktuellen Knotens
+        preorderMap.put(id, childrenIDpre);
+        childrenIDpre++;
+
         String childrenQuery = "SELECT DISTINCT to_ FROM edge WHERE from_ = " + id + ";";
         ResultSet rs = st.executeQuery(childrenQuery);
 
-        // Sammeln aller Kinder-IDs
         while (rs.next()) {
             childrenIDs.add(rs.getInt(1));
         }
 
-        // Aktuellen Knoten verarbeiten und ausgeben
-        System.out.println(id + " ||| preorderID: " + childrenID);
-        childrenID++;  // PreorderID nach der Verarbeitung inkrementieren
-
-        // Rekursive Preorder-Traversierung für jedes Kind
         for (Integer childId : childrenIDs) {
             preorder(childId);
         }
+
+        return preorderMap;
     }
+
     public static Map<Integer, Integer> postorder(int id) throws SQLException {
         Statement st = con.createStatement();
         ArrayList<Integer> childrenIDs = new ArrayList<>();
@@ -670,8 +670,8 @@ public class SofiaSAX {
         }
 
         //System.out.println(id + " ||| postorderID: " + childrenID);
-        postorderMap.put(id, childrenID);
-        childrenID++;
+        postorderMap.put(id, childrenIDpost);
+        childrenIDpost++;
         return postorderMap;
     }
 
@@ -980,6 +980,31 @@ public class SofiaSAX {
         } else {
             return input.substring(0, 255);
         }
+    }
+
+    public static void phase2Aufgabe3() throws SQLException {
+        childrenIDpost = 0;
+        childrenIDpre = 0;
+        preorder(0);
+        postorder(0);
+
+        Statement st = con.createStatement();
+        String dropTable = "drop table if exists prepostvalues";
+        st.execute(dropTable);
+
+        String createTable = "create table prepostvalues (id int, pre int, post int);";
+        st.execute(createTable);
+
+        StringBuilder strInsert = new StringBuilder("insert into prepostvalues (id, pre, post) VALUES ");
+        for (Map.Entry<Integer, Integer> e : preorderMap.entrySet()) {
+            strInsert.append("(" + e.getKey() + ", " + e.getValue() + ", " + postorderMap.get(e.getKey()) + "), ");
+            e.getKey();
+        }
+
+        strInsert.deleteCharAt(strInsert.length() - 1);
+        strInsert.deleteCharAt(strInsert.length() - 1);
+        strInsert.append(";");
+        st.execute(strInsert.toString());
     }
 
 
