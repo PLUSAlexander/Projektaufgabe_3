@@ -45,7 +45,7 @@ public class SofiaSAX {
         saxParser.parse("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/", bibHandler); ///C://Users//Startklar//Downloads//dblp1.xml//dblp.xml
         ///C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/
         //System.out.println(bibHandler.getXML().toString());
-        //CreateXML.mainMethod(bibHandler.getXML().toString());
+        CreateXML.mainMethod(bibHandler.getXML().toString());
 
         createEdgeModel();
         bibHandler.nodeInserter();
@@ -53,7 +53,7 @@ public class SofiaSAX {
         //createAccelSchema();
         //pre_post_order(bibHandler.getXML());
         //augstenChecker();
-        phase2Aufgabe3();
+        //prePostValues();
 
         //XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
         //XPathAxes.xPathDescendant("pvldb_2023", con);
@@ -982,7 +982,7 @@ public class SofiaSAX {
         }
     }
 
-    public static void phase2Aufgabe3() throws SQLException {
+    public static void prePostValues() throws SQLException {
         childrenIDpost = 0;
         childrenIDpre = 0;
         preorder(0);

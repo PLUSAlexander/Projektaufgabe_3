@@ -57,17 +57,22 @@ public class CreateXML {
     }
 
     private static void processAttributes(String attributes, Element entry, Document doc) {
-        Pattern attrPattern = Pattern.compile("(author|title|pages|year|booktitle|journal|number|ee|url|crossref):\\s*(.*?)(?=\\s+(author|title|pages|year|booktitle|journal|number|ee|url|crossref):|$)");
+        Pattern attrPattern = Pattern.compile("(author|title|pages|year|booktitle|journal|number|ee|url|volume):\\s*(.*?)(?=\\s*(author|title|pages|year|booktitle|journal|number|ee|url|volume):|$)");
         Matcher attrMatcher = attrPattern.matcher(attributes);
 
         while (attrMatcher.find()) {
             String attrName = attrMatcher.group(1);
             String attrValue = attrMatcher.group(2).trim();
+            System.out.println(attrName);
 
             if ("ee".equals(attrName)) {
                 String[] ees = attrValue.split("\\s+");
                 for (String ee : ees) {
                     Element eeElement = doc.createElement(attrName);
+                    // Prüft, ob der Link kein 'doi' enthält
+                    if (!ee.contains("doi")) {
+                        eeElement.setAttribute("type", "oa");
+                    }
                     eeElement.appendChild(doc.createTextNode(ee.trim()));
                     entry.appendChild(eeElement);
                 }
@@ -78,4 +83,5 @@ public class CreateXML {
             }
         }
     }
+
 }
