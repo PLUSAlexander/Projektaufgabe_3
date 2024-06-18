@@ -1,5 +1,6 @@
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -7,6 +8,7 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+
 import java.io.File;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,8 +16,7 @@ import java.util.regex.Pattern;
 public class CreateXML {
 
     public static void mainMethod(String text) {
-        String largeString = text;
-        convertStringToXML(largeString, "my_small_bib.xml");
+        convertStringToXML(text, "my_small_bib.xml");
     }
 
     public static void convertStringToXML(String data, String outputFile) {
@@ -57,29 +58,45 @@ public class CreateXML {
     }
 
     private static void processAttributes(String attributes, Element entry, Document doc) {
-        Pattern attrPattern = Pattern.compile("(author|title|pages|year|booktitle|journal|number|ee|url|volume):\\s*(.*?)(?=\\s*(author|title|pages|year|booktitle|journal|number|ee|url|volume):|$)");
+        Pattern attrPattern = Pattern.compile("(author|title|pages|year|booktitle|journal|number|ee|url|volume|crossref):\\s*(.*?)(?=\\s*(author|title|pages|year|booktitle|journal|number|ee|url|volume|crossref):|$)", Pattern.DOTALL);
         Matcher attrMatcher = attrPattern.matcher(attributes);
 
         while (attrMatcher.find()) {
             String attrName = attrMatcher.group(1);
             String attrValue = attrMatcher.group(2).trim();
-            System.out.println(attrName);
+            //System.out.println(attrName + ": " + attrValue);
+
+            if (attrValue.contains("ee")) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i <= 3; i++) {
+                    sb.append(attrValue.charAt(i));
+                }
+                for (int j = 0; j < sb.length(); j++) {
+                    if (sb.toString().charAt(j) < 48 || sb.toString().charAt(j) > 57) {
+                        sb.deleteCharAt(j);
+                    }
+                }
+                sb.deleteCharAt(sb.length() - 1);
+                attrValue = sb.toString();
+                System.out.println(attrValue);
+            }
 
             if ("ee".equals(attrName)) {
                 String[] ees = attrValue.split("\\s+");
                 for (String ee : ees) {
                     Element eeElement = doc.createElement(attrName);
-                    // Prüft, ob der Link kein 'doi' enthält
                     if (!ee.contains("doi")) {
-                        eeElement.setAttribute("type", "oa");
+                        continue;
+                        //eeElement.setAttribute("type", "oa");
                     }
                     eeElement.appendChild(doc.createTextNode(ee.trim()));
                     entry.appendChild(eeElement);
                 }
             } else {
-                Element attrElement = doc.createElement(attrName);
-                attrElement.appendChild(doc.createTextNode(attrValue));
-                entry.appendChild(attrElement);
+
+            Element attrElement = doc.createElement(attrName);
+            attrElement.appendChild(doc.createTextNode(attrValue));
+            entry.appendChild(attrElement);
             }
         }
     }
