@@ -7,6 +7,15 @@ import java.util.List;
 
 public class AxesAsWindow {
 
+    public static void mainMethode(String axes, int id, Connection con) throws SQLException {
+        switch (axes) {
+            case "ancestor" -> calculateAncestor(id, con);
+            case "descendant" -> calculateDescendants(id, con);
+            case "following-sibling" -> calculateFollowingSibling(id, con);
+            case  "precedingsibling" -> calculatePrecedingSibling(id, con);
+        }
+    }
+
     public static void calculateAncestor(int id, Connection con) throws SQLException {
 
         int preVal = 0;
