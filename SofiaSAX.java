@@ -42,14 +42,19 @@ public class SofiaSAX {
         SAXParser saxParser = factory.newSAXParser();
 
         BibHandler bibHandler = new BibHandler();
-        saxParser.parse("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/", bibHandler); ///C://Users//Startklar//Downloads//dblp1.xml//dblp.xml
+
+        //AxesAsWindow.calculateAncestor(25, con);
+        //AxesAsWindow.calculateDescendants(3, con);
+        //AxesAsWindow.calculateFollowingSibling(45, con);
+        AxesAsWindow.calculatePrecedingSibling(61, con);
+        //saxParser.parse("/C://Users//Startklar//Downloads//dblp1.xml//dblp.xml", bibHandler); ///C://Users//Startklar//Downloads//dblp1.xml//dblp.xml
         ///C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/
         //System.out.println(bibHandler.getXML().toString());
-        CreateXML.mainMethod(bibHandler.getXML().toString());
+        //CreateXML.mainMethod(bibHandler.getXML().toString());
 
-        createEdgeModel();
-        bibHandler.nodeInserter();
-        edgeInserter();
+        //createEdgeModel();
+        //bibHandler.nodeInserter();
+        //edgeInserter();
         //createAccelSchema();
         //pre_post_order(bibHandler.getXML());
         //augstenChecker();
@@ -74,7 +79,7 @@ public class SofiaSAX {
         private StringBuilder elementValue;
 
         //element types ->
-        private static final String BIB = "bib";
+        private static final String BIB = "dblp";
         private static final String ARTICLE = "article";
         private static final String INPROCEEDINGS = "inproceedings";
         private static final String AUTHOR = "author";

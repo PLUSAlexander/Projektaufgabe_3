@@ -93,10 +93,9 @@ public class CreateXML {
                     entry.appendChild(eeElement);
                 }
             } else {
-
-            Element attrElement = doc.createElement(attrName);
-            attrElement.appendChild(doc.createTextNode(attrValue));
-            entry.appendChild(attrElement);
+                Element attrElement = doc.createElement(attrName);
+                attrElement.appendChild(doc.createTextNode(attrValue));
+                entry.appendChild(attrElement);
             }
         }
     }
