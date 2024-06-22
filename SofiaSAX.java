@@ -43,14 +43,11 @@ public class SofiaSAX {
 
         BibHandler bibHandler = new BibHandler();
 
-        //AxesAsWindow.calculateAncestor(25, con);
-        //AxesAsWindow.calculateDescendants(3, con);
-        //AxesAsWindow.calculateFollowingSibling(45, con);
-        AxesAsWindow.calculatePrecedingSibling(61, con);
-        //saxParser.parse("/C://Users//Startklar//Downloads//dblp1.xml//dblp.xml", bibHandler); ///C://Users//Startklar//Downloads//dblp1.xml//dblp.xml
+        saxParser.parse("/C://Users//Startklar//Downloads//dblp1.xml//dblp.xml", bibHandler);
         ///C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/
+        ///C://Users//Startklar//Downloads//dblp1.xml//dblp.xml
         //System.out.println(bibHandler.getXML().toString());
-        //CreateXML.mainMethod(bibHandler.getXML().toString());
+        CreateXML.mainMethod(bibHandler.getXML().toString());
 
         //createEdgeModel();
         //bibHandler.nodeInserter();
@@ -59,6 +56,11 @@ public class SofiaSAX {
         //pre_post_order(bibHandler.getXML());
         //augstenChecker();
         //prePostValues();
+
+        //AxesAsWindow.calculateAncestor(40, con);
+        //AxesAsWindow.calculateDescendants(2, con);
+        //AxesAsWindow.calculateFollowingSibling(49, con);
+        //AxesAsWindow.calculatePrecedingSibling(49, con);
 
         //XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
         //XPathAxes.xPathDescendant("pvldb_2023", con);
@@ -117,8 +119,8 @@ public class SofiaSAX {
                 case BIB -> xmlDoc.entryList = new ArrayList<>();
                 case ARTICLE, INPROCEEDINGS-> {
                     String key = attributes.getValue("key");
-                    currentEntryIsValid = false;
-                    if (key != null && (key.startsWith("journals/pvldb/") || key.startsWith("conf/vldb/") || key.startsWith("journals/pacmmod/") || key.startsWith("conf/sigmod/") || key.startsWith("conf/icde/"))) {
+                    currentEntryIsValid = false;                                                                                                                                                                     //added conf/cdc (14kb)   conf/infocom (6 kb)   conf/case (4 kb)  conf/vr (4 kb)   conf/lcn (2kb)   journals/tc (53 kb)   (80 kb file enthält conf/cdc nicht mehr!)
+                    if (key != null && (key.startsWith("journals/pvldb/") || key.startsWith("conf/vldb/") || key.startsWith("journals/pacmmod/") || key.startsWith("conf/sigmod/") || key.startsWith("conf/icde/")|| key.startsWith("conf/infocom") || key.startsWith("conf/case") /*|| key.startsWith("conf/cdc")*/ || key.startsWith("conf/vr") || key.startsWith("conf/lcn") || key.startsWith("journals/tc"))) {
                         currentEntryIsValid = true;
                         xmlDoc.entryList.add(new BibEntry());
                         latestEntry().setKey("key = " + key);
@@ -1011,6 +1013,8 @@ public class SofiaSAX {
         strInsert.append(";");
         st.execute(strInsert.toString());
     }
+
+
 
 
 }
