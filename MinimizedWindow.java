@@ -5,9 +5,10 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AxesAsWindow {
-
-
+public class MinimizedWindow {
+    //"<(pre(v),infinity), [0,post(v)), *, *, *>";
+    // "<(pre(v),infinity), (post(v),infinity), par(v), *, *>";
+    //"<[0,pre(v)), [0,post(v)), par(v), *, *>";
     public static void mainMethode(String axes, int id, Connection con) throws SQLException {
         switch (axes) {
             case "ancestor" -> calculateAncestor(id, con);
@@ -30,9 +31,16 @@ public class AxesAsWindow {
                 postVal = rsPrePost.getInt("post");
             }
 
+            //before ->  <[0,pre(v)), (post(v),infinity), *, *, *>
+            //after ->  <[0,pre(v)), (post(v),post(root)), *, *, *>
+            ResultSet rsPostRoot = st.executeQuery("select post from prepostvalues where id = 0");
+            int postValOfRoot = 0;
+            while (rsPostRoot.next())
+                postValOfRoot = Integer.parseInt(rsPostRoot.getString(1));
 
             List<Integer> ancestors = new ArrayList<>();
-            String getAncestors = "select pre from accel where pre < " + preVal + " AND post > " + postVal + ";";
+            String getAncestors = "select pre from accel where pre < " + preVal + " AND post between " + postVal + " and " + postValOfRoot + ";";
+            System.out.println(getAncestors);
             ResultSet rsAncestors = st.executeQuery(getAncestors);
             while (rsAncestors.next()) {
                 ancestors.add(rsAncestors.getInt("pre"));
@@ -61,9 +69,10 @@ public class AxesAsWindow {
                 postVal = rsPrePost.getInt("post");
             }
 
+            //before ->  <(pre(v),infinity), [0,post(v)), *, *, *>
+            //after ->  <(pre(v), post(v)+height(t)], [pre(v)-height(t),post(v)), *, *, *>
             List<Integer> descendants = new ArrayList<>();
-            // Select descendants from the accel table where their 'pre' is greater than 'preVal' and 'post' is less than 'postVal'
-            String getDescendants = "SELECT pre FROM accel WHERE pre > " + preVal + " AND post < " + postVal + ";";
+            String getDescendants = "SELECT pre FROM accel WHERE pre between " + (preVal+1) + " and " + (postVal+4) + " AND post between " + (preVal-4) + " and " + postVal + ";";
             ResultSet rsDescendants = st.executeQuery(getDescendants);
             while (rsDescendants.next()) {
                 descendants.add(rsDescendants.getInt("pre"));
@@ -80,8 +89,9 @@ public class AxesAsWindow {
         }
     }
 
+    //TODO: implement right semantics for followingSibling
     public static void calculateFollowingSibling(int id, Connection con) throws SQLException {
-    //<(pre(v),infinity), (post(v),infinity), par(v), *, *>
+        //<(pre(v),infinity), (post(v),infinity), par(v), *, *>
         int preVal = 0;
         int postVal = 0;
         int parentVal = 0;
@@ -98,7 +108,21 @@ public class AxesAsWindow {
             while (rsPar.next())
                 parentVal = rsPar.getInt(1);
 
-            ResultSet rsPres = st.executeQuery("select pre from accel where pre > + " +  preVal + " and post > " + postVal + " and parent = " + parentVal + ";");
+
+            //before ->  <(pre(v),infinity), (post(v),infinity), par(v), *, *>
+            //after ->  <(pre(v),post(parent(v)+height(t)], (post(v),post(parent(v)), par(v), *, *>
+            int postParP4 = 0;
+            ResultSet rsGetPostOfParPHeight = st.executeQuery("select post from prepostvalues where id = " + (parentVal+4) + ";");
+            while (rsGetPostOfParPHeight.next())
+                postParP4 = rsGetPostOfParPHeight.getInt(1);
+
+            int postOfParent = 0;
+            ResultSet rsPostOfParent = st.executeQuery("select post from prepostvalues where id = " + parentVal + ";");
+            while (rsPostOfParent.next())
+                postOfParent = rsPostOfParent.getInt(1);
+
+            ResultSet rsPres = st.executeQuery("select pre from accel where pre between " + postParP4 + " and " + (preVal+1) + " and post between " + (postVal+1) + " and " + postOfParent + " and parent = " + parentVal + ";");
+            System.out.println("select pre from accel where pre between " +  (preVal+1) + " and " + postParP4 + " and post between " + (postVal+1) + " and " + postOfParent + " and parent = " + parentVal + ";");
 
             ArrayList<Integer> fSibPre = new ArrayList<>();
             while (rsPres.next())
@@ -114,7 +138,7 @@ public class AxesAsWindow {
 
     }
 
-
+    //TODO: implement right semantics for precedingSibling
     public static void calculatePrecedingSibling(int id, Connection con) throws SQLException {
         int preVal = 0;
         int postVal = 0;

@@ -3,8 +3,6 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.xml.sax.Attributes;
-import org.xml.sax.EntityResolver;
-import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
@@ -13,34 +11,78 @@ import java.util.*;
 import java.sql.*;
 
 
-public class Sofia { //SOFIASAX2 NEU
+public class BenchmarkClass {
     private static Connection con;
-    private static String url = "jdbc:postgresql://localhost/DJRProjektaufgabe3";
+    private static String url = "jdbc:postgresql://localhost/postgres";
     private static String user = "postgres";
-    private static String pwd = "dreizehn13";
-
-    private static int id = 1;
+    private static String pwd = "1234";
+    private static int id = 0;
     private static int toCounter = 1;
     private static List<Integer> toCount = new ArrayList<>();
     private static int fromCounter = 1;
     private static List<Integer> fromCount = new ArrayList<>();
+    private static Map<String, Integer> venues = new HashMap<>();
+    private static Map<String, Integer> years = new HashMap<>();
+    private static int childrenIDpre = 0;
+    private static int childrenIDpost = 0;
+    private static int first = 1;
+    private static boolean currentEntryIsValid = false;
+    private static Map<Integer, Integer> postorderMap = new HashMap<>();
+    private static Map<Integer, Integer> preorderMap = new HashMap<>();
+    private static Map<Integer, Integer> nodeAccelMap = new HashMap<>();
+    private static Map<Integer, Integer> preOneAxis = new HashMap<>();
+    private static Map<Integer, Integer> postOneAxis = new HashMap<>();
+
 
 
     public static void main(String[] args) throws ParserConfigurationException, SAXException, IOException, SQLException {
         con = DriverManager.getConnection(url, user, pwd);
 
+        System.setProperty("jdk.xml.entityExpansionLimit", "4000000");
+
         SAXParserFactory factory = SAXParserFactory.newInstance();
         SAXParser saxParser = factory.newSAXParser();
-        //EntityResolver res = new EntityRes();
-        //saxParser.getXMLReader().setEntityResolver(res);
 
         BibHandler bibHandler = new BibHandler();
-        saxParser.parse("/C:/Users/sofia/Documents/Uni Salzburg/Informatik/4. Semester/VU Datenmangement jenseits von Relationen/Assignment3/toy_example.txt/", bibHandler);
-        System.out.println(bibHandler.getXML());
 
+        saxParser.parse("/C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/", bibHandler);
+        ///C://Users//Startklar//Dokumente//Projektaufgabe_3//toy_example.txt/
+        ///C://Users//Startklar//Downloads//dblp1.xml//dblp.xml
+        ///C://Users//Startklar//Dokumente//Projektaufgabe_3//my_small_bib_10kb.xml/
+        ///C:\Users\Startklar\Dokumente\Projektaufgabe_3\test_dateien\my_small_bib_20mb.xml
+
+        //System.out.println(bibHandler.getXML().toString());
+        //CreateXML.mainMethod(bibHandler.getXML().toString());
         createEdgeModel();
         bibHandler.nodeInserter();
         edgeInserter();
+
+        //augstenChecker();
+
+        createAccelSchema();
+        getListOfPreAndPostOrder();
+        insertIntoAccel(); //funktioniert!
+        //MinimizedWindow.mainMethode("ancestor", 29, con);  // passt!
+        MinimizedWindow.mainMethode("descendant", 2, con); // passt!
+        //MinimizedWindow.mainMethode("followingsibling", 4, con);
+
+
+        //pre_post_order(bibHandler.getXML());
+
+        //XPathAxes.xPathAncestor("Daniel Ulrich Schmitt", con);
+        //AxesAsWindow.calculateAncestor(4, con); passt!
+        //XPathAxes.xPathDescendant("pvldb_2023", con);
+        //AxesAsWindow.calculateDescendants(2, con); passt!
+        //XPathAxes.xPathSiblingFollowing("SchalerHS23", con);
+        //AxesAsWindow.calculateFollowingSibling(49, con);
+        //XPathAxes.xPathSiblingPreceding("SchalerHS23", con);
+        //AxesAsWindow.calculatePrecedingSibling(49, con); // passt!
+        //XPathAxes.xPathSiblingFollowing("SchmittKAMM23", con);
+        //AxesAsWindow.calculateFollowingSibling(3, con); passt!
+        //XPathAxes.xPathSiblingPreceding("SchmittKAMM23", con);
+
+
+        con.close();
     }
 
 
@@ -67,6 +109,7 @@ public class Sofia { //SOFIASAX2 NEU
         private static final String URL = "url";
         private static final String BOOKTITLE = "booktitle";
         private static final String CROSSREF = "crossref";
+        private static final String DBLP = "dblp";
 
 
         @Override
@@ -88,23 +131,34 @@ public class Sofia { //SOFIASAX2 NEU
         @Override
         public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
             switch (qName) {
-                case BIB -> xmlDoc.entryList = new ArrayList<>();
-                case ARTICLE, INPROCEEDINGS -> {
-                    xmlDoc.entryList.add(new BibEntry());
+                case BIB, DBLP -> xmlDoc.entryList = new ArrayList<>();
+                case ARTICLE, INPROCEEDINGS-> {
                     String key = attributes.getValue("key");
-                    latestEntry().setKey("key = " + key);
-                    latestEntry().setType(qName);
+                    currentEntryIsValid = false;                                                                                                                                                                     //added conf/cdc (14kb)   conf/infocom (6 kb)   conf/case (4 kb)  conf/vr (4 kb)   conf/lcn (2kb)   journals/tc (53 kb)   (80 kb file enthält conf/cdc nicht mehr!)
+                    if (key != null && (key.startsWith("journals/pvldb/") || key.startsWith("conf/vldb/") || key.startsWith("journals/pacmmod/") || key.startsWith("conf/sigmod/") || key.startsWith("conf/icde/")|| key.startsWith("conf/infocom") || key.startsWith("conf/case") /*|| key.startsWith("conf/cdc")*/ || key.startsWith("conf/vr") || key.startsWith("conf/lcn") || key.startsWith("journals/tc"))) {
+                        currentEntryIsValid = true;
+                        xmlDoc.entryList.add(new BibEntry());
+                        latestEntry().setKey("key = " + key);
+                        latestEntry().setType(qName);
+                        first++;
+                    }
+
                 }
+
                 case CROSSREF, BOOKTITLE, AUTHOR, TITLE, PAGES, YEAR, VOLUME, JOURNAL, NUMBER, URL -> {
-                    elementValue = new StringBuilder();
-                    elementValue.append(qName).append(":  ");
+                    if (currentEntryIsValid) {
+                        elementValue = new StringBuilder();
+                        elementValue.append(qName).append(":  ");
+                    }
                 }
                 case EE -> {
-                    elementValue = new StringBuilder();
-                    elementValue.append(qName);
-                    String eeType = attributes.getValue("type");
-                    if (eeType != null) elementValue.append("(type = ").append(eeType).append(")");
-                    elementValue.append(":  ");
+                    if (currentEntryIsValid) {
+                        elementValue = new StringBuilder();
+                        elementValue.append(qName);
+                        String eeType = attributes.getValue("type");
+                        if (eeType != null) elementValue.append("(type = ").append(eeType).append(")");
+                        elementValue.append(":  ");
+                    }
                 }
             }
         }
@@ -112,18 +166,20 @@ public class Sofia { //SOFIASAX2 NEU
 
         @Override
         public void endElement(String uri, String localName, String qName) throws SAXException {
-            switch (qName) {
-                case TITLE -> latestEntry().setTitle(elementValue.toString());
-                case PAGES -> latestEntry().setPages(elementValue.toString());
-                case YEAR -> latestEntry().setYear(elementValue.toString());
-                case VOLUME -> latestEntry().setVolume(elementValue.toString());
-                case JOURNAL -> latestEntry().setJournal(elementValue.toString());
-                case AUTHOR -> latestEntry().setAuthor(elementValue.toString());
-                case NUMBER -> latestEntry().setNumber(elementValue.toString());
-                case EE -> latestEntry().setEe(elementValue.toString());
-                case URL -> latestEntry().setUrl(elementValue.toString());
-                case BOOKTITLE -> latestEntry().setBookTitle(elementValue.toString());
-                case CROSSREF -> latestEntry().setCrossRef(elementValue.toString());
+            if (currentEntryIsValid) {
+                switch (qName) {
+                    case TITLE -> latestEntry().setTitle(elementValue.toString());
+                    case PAGES -> latestEntry().setPages(elementValue.toString());
+                    case YEAR -> latestEntry().setYear(elementValue.toString());
+                    case VOLUME -> latestEntry().setVolume(elementValue.toString());
+                    case JOURNAL -> latestEntry().setJournal(elementValue.toString());
+                    case AUTHOR -> latestEntry().setAuthor(elementValue.toString());
+                    case NUMBER -> latestEntry().setNumber(elementValue.toString());
+                    case EE -> latestEntry().setEe(elementValue.toString());
+                    case URL -> latestEntry().setUrl(elementValue.toString());
+                    case BOOKTITLE -> latestEntry().setBookTitle(elementValue.toString());
+                    case CROSSREF -> latestEntry().setCrossRef(elementValue.toString());
+                }
             }
         }
 
@@ -170,37 +226,66 @@ public class Sofia { //SOFIASAX2 NEU
                 Statement stmInsert = con.createStatement();
                 StringBuilder strInsert = new StringBuilder("insert into node(id, s_id, type, content) VALUES ");
 
-                strInsert.append("(").append(id).append(", '").append(venue).append("', 'venue', ").append("null), ");
-                toCount.add(toCounter);
-                fromCount.add(0);
-                fromCounter = toCounter;
-                toCounter++;
 
-                id++;
-                strInsert.append("(").append(id).append(", '").append(venue).append("_").append(year).append("', 'year', ").append("null), ");
-                toCount.add(toCounter);
-                toCounter++;
-                fromCount.add(fromCounter);
-                fromCounter++;
+                //group after venue and year ->
+
+                String venueToGroup = venue;   //for pacmmod = sigmod && vldb = pvldb; group both under sigmod / pvldb
+
+                if(venue.equals("pacmmod")) {
+                    venueToGroup = "sigmod";
+                }
+
+                if(venue.equals("vldb")){
+                    venueToGroup = "pvldb";
+                }
+
+
+                if(!venues.containsKey(venueToGroup)){
+                    id++;
+                    strInsert.append("(").append(id).append(", '").append(venueToGroup).append("', 'venue', ").append("null), ");
+                    toCount.add(toCounter);
+                    fromCount.add(0);
+                    fromCounter = toCounter;
+                    toCounter++;
+                    venues.put(venueToGroup, id);
+                }
+
+
+                String checkYearInVenue = year + venueToGroup;
+                if(!years.containsKey(checkYearInVenue)) {
+                    id++;
+                    strInsert.append("(").append(id).append(", '").append(venueToGroup).append("_").append(year).append("', 'year', ").append("null), ");
+                    toCount.add(toCounter);
+                    toCounter++;
+                    fromCount.add(venues.get(venueToGroup));
+                    years.put(checkYearInVenue, id);
+                }
+
 
                 id++;
                 strInsert.append("(").append(id).append(", '").append(name).append("', '").append(type).append("', ").append("null), ");
                 toCount.add(toCounter);
+                fromCounter = toCounter;
                 toCounter++;
-                fromCount.add(fromCounter);
-                fromCounter++;
+                fromCount.add(years.get(checkYearInVenue));
 
-                if(!author.isEmpty()) {
+
+                //add attributes ->
+
+                if (!author.isEmpty()) {
                     for (String auth : author) {
                         String[] partsAu = auth.split(":  ");
-                        String a = partsAu[1];
-                        id++;
-                        strInsert.append("(").append(id).append(", null, 'author', '").append(a).append("'), ");
-                        toCount.add(toCounter);
-                        toCounter++;
-                        fromCount.add(fromCounter);
+                        if (partsAu.length > 1) {
+                            String a = partsAu[1].replace("'", "''");
+                            id++;
+                            strInsert.append("(").append(id).append(", null, 'author', '").append(a).append("'), ");
+                            toCount.add(toCounter);
+                            toCounter++;
+                            fromCount.add(fromCounter);
+                        }
                     }
                 }
+
 
                 if(titleA != null) {
                     String[] partsT = titleA.split(":  ");
@@ -305,10 +390,9 @@ public class Sofia { //SOFIASAX2 NEU
                     fromCount.add(fromCounter);
                 }
 
-                id++;
 
                 strInsert.append(";");
-                System.out.println(strInsert);
+                //System.out.println(strInsert);
                 stmInsert.execute(strInsert.toString());
             }
         }
@@ -327,13 +411,14 @@ public class Sofia { //SOFIASAX2 NEU
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();
-            sb.append('\n').append("bib").append('\n');
+            sb.append('\n').append("bib").append('\n'); // changed
             for (BibEntry entry : entryList) {
                 sb.append("   ").append(entry).append("\n");
             }
             return sb.toString();
         }
     }
+
 
 
     //entry (article or inproceeding)
@@ -485,21 +570,11 @@ public class Sofia { //SOFIASAX2 NEU
     }
 
 
-    //Umlaute ermöglichen
-    /*public static class EntityRes implements EntityResolver {
-        @Override
-        public InputSource resolveEntity(String publicId, String systemId) throws SAXException, IOException {
-                String dtd = "<!ENTITY uuml \"&#252;\">";
-                StringReader reader = new StringReader(dtd);
-                return new InputSource(reader);
-        }
-    }
-*/
 
     //create schema for Edge-Model
     public static void createEdgeModel() throws SQLException {
         Statement stmDropNode = con.createStatement();
-        String dropNode = "DROP TABLE IF EXISTS NODE;";
+        String dropNode = "DROP TABLE IF EXISTS NODE cascade;";
         stmDropNode.execute(dropNode);
 
         Statement stmCreateNode = con.createStatement();
@@ -521,6 +596,7 @@ public class Sofia { //SOFIASAX2 NEU
     }
 
 
+
     //fill edge-table of Edge-Model
     public static void edgeInserter() throws SQLException {
         Statement st = con.createStatement();
@@ -537,9 +613,208 @@ public class Sofia { //SOFIASAX2 NEU
     }
 
 
-    //TO DO: Implementing the XPath-axes in the Edge-Model
+    //Implementing the XPath-axes in the Edge-Model --> in the XPathAxes-Class
 
 
 
     //Phase 2
+
+    //create my_small_bib.xml --> in the CreateXML-Class
+
+
+    //count publications of author Nikolaus Augsten
+    public static void augstenChecker() throws SQLException {
+        int sigmodID = 1;
+        int icdeID = 67133;
+        int pvldbID = 152572;
+        int sigmodCount = 0;
+        int icdeCount = 0;
+        int pvldbCount = 0;
+
+        List<Integer> includedVenueYears = new ArrayList<>();
+        Statement st = con.createStatement();
+        String sql1 = "select from_ from edge where to_ IN (SELECT from_ FROM edge WHERE to_ IN (SELECT id FROM node WHERE content = 'Nikolaus Augsten'));";
+        ResultSet rs = st.executeQuery(sql1);
+        while (rs.next())
+            includedVenueYears.add(Integer.valueOf(rs.getString(1)));
+
+        for (Integer i : includedVenueYears) {
+            if (i < icdeID) {
+                sigmodCount++;
+            } else if (i < pvldbID) {
+                icdeCount++;
+            } else {
+                pvldbCount++;
+            }
+        }
+
+        System.out.println(sigmodCount);
+        System.out.println(icdeCount);
+        System.out.println(pvldbCount);
+
+        st.execute("drop table if exists augstenCount;");
+        st.execute("create table augstenCount (venue varchar(255), count int);");
+
+        st.execute("insert into augstenCount (venue, count) VALUES ('sigmod', " + sigmodCount + "), ('icde', " + icdeCount + "), ('vldb', " + pvldbCount + ");");
+
+    }
+
+
+
+    //get pre-/post-order value for each id
+    public static Map<Integer, Integer> preorder(int id) throws SQLException {
+        Statement st = con.createStatement();
+        ArrayList<Integer> childrenIDs = new ArrayList<>();
+
+        preorderMap.put(id, childrenIDpre);
+        childrenIDpre++;
+
+        String childrenQuery = "SELECT DISTINCT to_ FROM edge WHERE from_ = " + id + ";";
+        ResultSet rs = st.executeQuery(childrenQuery);
+
+        while (rs.next()) {
+            childrenIDs.add(rs.getInt(1));
+        }
+
+        for (Integer childId : childrenIDs) {
+            preorder(childId);
+        }
+        return preorderMap;
+    }
+
+    public static Map<Integer, Integer> postorder(int id) throws SQLException {
+        Statement st = con.createStatement();
+        ArrayList<Integer> childrenIDs = new ArrayList<>();
+
+        String childrenQuery = "SELECT DISTINCT to_ FROM edge WHERE from_ = " + id + ";";
+        ResultSet rs = st.executeQuery(childrenQuery);
+
+        while (rs.next()) {
+            childrenIDs.add(rs.getInt(1));
+        }
+
+        for (Integer childId : childrenIDs) {
+            postorder(childId);
+        }
+
+        postorderMap.put(id, childrenIDpost);
+        childrenIDpost++;
+        return postorderMap;
+    }
+
+
+
+    //create Schema for accelerator (invoke postorder)
+    public static void createAccelSchema() throws SQLException {
+        String dropAccel = "DROP TABLE if exists accel;";
+        String dropContent = "DROP TABLE if exists content;";
+        String dropAttribute = "DROP TABLE if exists attributes;";
+        Statement stmDropAccel = con.createStatement();
+        Statement stmDropContent = con.createStatement();
+        Statement stmDropAttribute = con.createStatement();
+        stmDropAttribute.execute(dropAttribute);
+        stmDropAccel.execute(dropAccel);
+        stmDropContent.execute(dropContent);
+
+        String createAccel = "CREATE TABLE accel(pre int, post int, s_id VARCHAR(255), parent int, type VARCHAR(255), PRIMARY KEY(pre));";
+        String createContent = "CREATE TABLE content(pre int, text VARCHAR(255), PRIMARY KEY(pre));";
+        String createAttribute = "CREATE TABLE attributes(pre int, text VARCHAR(255), PRIMARY KEY(pre));";
+        Statement stmCreateAccel = con.createStatement();
+        Statement stmCreateContent = con.createStatement();
+        Statement stmCreateAttribute = con.createStatement();
+        stmCreateAttribute.execute(createAttribute);
+        stmCreateContent.execute(createContent);
+        stmCreateAccel.execute(createAccel);
+
+        Statement dropIndexStm = con.createStatement();
+        String dropIndex = "DROP INDEX if exists postOrder_idx;";
+        dropIndexStm.execute(dropIndex);
+
+        Statement createIndexStm = con.createStatement();
+        String createIndex = "CREATE INDEX postOrder_idx on edge USING hash (from_);";
+        createIndexStm.execute(createIndex);
+
+        postorder(0);
+        preorder(0);
+
+        //String strInsert = "INSERT INTO accel(pre, post, s_id, parent, type) VALUES (" + preorderMap.get(0) + ", " + postorderMap.get(0) + ", 'bib', null, 'bib');";
+        //Statement st = con.createStatement();
+        //st.execute(strInsert);
+        System.out.println("finished create accel schema");
+    }
+
+    public static void insertIntoAccel() throws SQLException {
+        int i = 0;
+
+        while (i < 2) {
+            Statement st = con.createStatement();
+
+            String delete1 = "drop view if exists test_1";
+            String delete2 = "drop table if exists test_2 cascade";
+            String delete3 = "drop view if exists test_3";
+            st.execute(delete1);
+            st.execute(delete2);
+            st.execute(delete3);
+
+            i++;
+            if (i > 1)
+                continue;
+
+            String q1 = "create view test_1 as (select id, s_id, type, from_ as parent from node join edge on node.id = edge.to_);";
+            st.execute(q1);
+
+            String q2 = "create table test_2 as (select * from test_1 natural join prepostvalues);";
+            st.execute(q2);
+
+            String getMaxVal = "select count (*) as c from edge";
+            ResultSet rs = st.executeQuery(getMaxVal);
+            int maxVal = 0;
+            while (rs.next())
+                maxVal = rs.getInt(1);
+
+            String insertBib = "insert into test_2 values (0, 'bib', 'bib', null, 0, " + maxVal + ");";
+            st.execute(insertBib);
+
+            String q3 = "create view test_3 as (SELECT * FROM test_2 ORDER BY id ASC);";
+            st.execute(q3);
+
+            String accelInsert = "INSERT INTO accel (pre, post, s_id, parent, type) SELECT pre, post, s_id, parent, type FROM test_3";
+            st.execute(accelInsert);
+        }
+
+
+    }
+
+
+    public static void getListOfPreAndPostOrder() throws SQLException {
+        childrenIDpost = 0;
+        childrenIDpre = 0;
+
+        Statement st = con.createStatement();
+        String dropTable = "drop table if exists prepostvalues";
+        st.execute(dropTable);
+
+        String createTable = "create table prepostvalues (id int, pre int, post int);";
+        st.execute(createTable);
+
+        StringBuilder strInsert = new StringBuilder("insert into prepostvalues (id, pre, post) VALUES ");
+        for (Map.Entry<Integer, Integer> e : preorderMap.entrySet()) {
+            strInsert.append("(" + e.getKey() + ", " + e.getValue() + ", " + postorderMap.get(e.getKey()) + "), ");
+            e.getKey();
+        }
+
+        strInsert.deleteCharAt(strInsert.length() - 1);
+        strInsert.deleteCharAt(strInsert.length() - 1);
+        strInsert.append(";");
+        st.execute(strInsert.toString());
+        System.out.println("finished getListOfPreAndPostOrder");
+    }
+
+    //Phase 3
+
+    //minimize window of pre-/post-order
+
+
+    //benchmark
+    //to do:
 }
